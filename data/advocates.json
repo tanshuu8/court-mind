@@ -1,0 +1,57 @@
+[
+  {
+    "advocate_id": "ADV-DEL-001",
+    "name": "Harish N. Salve (Senior Advocate Chamber)",
+    "practice_areas": ["Constitutional Law", "Administrative Law", "Appellate Litigation"],
+    "courts": ["Supreme Court of India", "High Court of Delhi"],
+    "location": "New Delhi",
+    "experience_years": 38,
+    "verified": true,
+    "consultation_preferences": "In-person & Virtual (By prior appointment)",
+    "bar_council_id": "D/142/1986"
+  },
+  {
+    "advocate_id": "ADV-DEL-002",
+    "name": "Ananya Sharma",
+    "practice_areas": ["Civil Law / Land Acquisition", "Property Law", "Revenue Matters"],
+    "courts": ["Supreme Court of India", "High Court of Delhi", "District Courts Delhi"],
+    "location": "New Delhi",
+    "experience_years": 14,
+    "verified": true,
+    "consultation_preferences": "In-person & Virtual",
+    "bar_council_id": "D/2891/2010"
+  },
+  {
+    "advocate_id": "ADV-CHD-003",
+    "name": "Gurpreet Singh Sidhu",
+    "practice_areas": ["Criminal Law", "Appellate Criminal Defence", "Constitutional Writs"],
+    "courts": ["High Court of Punjab & Haryana", "Supreme Court of India"],
+    "location": "Chandigarh",
+    "experience_years": 18,
+    "verified": true,
+    "consultation_preferences": "In-person & Virtual",
+    "bar_council_id": "P/812/2006"
+  },
+  {
+    "advocate_id": "ADV-DEL-004",
+    "name": "Vikramaditya Rao",
+    "practice_areas": ["Fundamental Rights", "Human Rights", "Public Interest Litigation"],
+    "courts": ["Supreme Court of India"],
+    "location": "New Delhi",
+    "experience_years": 9,
+    "verified": false,
+    "consultation_preferences": "Virtual Consultation Only",
+    "bar_council_id": "D/5120/2015"
+  },
+  {
+    "advocate_id": "ADV-MUM-005",
+    "name": "Pooja K. Deshmukh",
+    "practice_areas": ["Commercial Arbitration", "Contract Law", "Corporate Litigation"],
+    "courts": ["High Court of Bombay", "City Civil Court Mumbai"],
+    "location": "Mumbai",
+    "experience_years": 11,
+    "verified": true,
+    "consultation_preferences": "In-person & Virtual",
+    "bar_council_id": "MAH/3421/2013"
+  }
+]

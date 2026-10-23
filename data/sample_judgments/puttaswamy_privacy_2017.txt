@@ -1,0 +1,22 @@
+Case Title: Justice K.S. Puttaswamy (Retd.) and Anr. v. Union of India and Ors.
+Court: Supreme Court of India
+Document ID: SCI-2017-WP-494
+Year: 2017
+Date of Decision: 24 August 2017
+Bench: J.S. Khehar C.J., J. Chelameswar, S.A. Bobde, R.K. Agrawal, R.F. Nariman, A.M. Sapre, D.Y. Chandrachud, S.K. Kaul, S. Abdul Nazeer JJ.
+Source: AIR 2017 SC 4161; (2017) 10 SCC 1
+
+JUDGMENT:
+Para 1. A unanimous nine-judge Constitution Bench of this Court is called upon to determine whether the right to privacy is guaranteed as an independent fundamental right under the Constitution of India, and if so, what is its constitutional source and scope.
+
+Para 2. The referral arose during challenges to the Aadhaar (Targeted Delivery of Financial and Other Subsidies, Benefits and Services) Act, wherein the Union of India, relying upon earlier eight-judge bench decision in M.P. Sharma v. Satish Chandra (1954) and six-judge bench decision in Kharak Singh v. State of U.P. (1963), argued that the Constitution does not recognize a fundamental right to privacy.
+
+Para 3. We hold that privacy is a concomitant of the fundamental freedoms guaranteed by Part III of the Constitution. Privacy represents the constitutional core of human dignity, personal liberty, and individual autonomy.
+
+Para 4. The right to privacy is declared to be a fundamental right protected under Article 21 of the Constitution as an intrinsic part of the right to life and personal liberty, and as a facet of the freedoms guaranteed by Part III.
+
+Para 5. The earlier decisions of this Court in M.P. Sharma (1954) to the extent that it held privacy is not a fundamental right, and Kharak Singh (1963) to the extent that it held Article 21 does not encompass privacy, are hereby overruled.
+
+Para 6. An invasion of privacy by state action must withstand the constitutional test of proportionality: (i) legality, requiring existence of a clear law; (ii) legitimate state aim; (iii) suitability and rational nexus between the measure and the aim; (iv) necessity, demonstrating that the least intrusive means is adopted; and (v) procedural safeguards against abuse.
+
+Para 7. Informational privacy forms an essential facet of privacy. The collection, storage, and processing of personal data must be regulated by a robust data protection framework to prevent unauthorized surveillance and misuse of citizen information.

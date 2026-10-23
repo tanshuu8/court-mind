@@ -1,5 +1,15 @@
-"""SQLAlchemy Database Models.
+from app.models.base import Base, TimestampMixin
+from app.models.user import User
+from app.models.document import Document
+from app.models.chunk import DocumentChunk, VectorColumn
+from app.models.job import IngestionJob
 
-Actual relational database tables and pgvector schemas will be defined
-after finalizing the dataset schema in Phase 2.
-"""
+__all__ = [
+    "Base",
+    "TimestampMixin",
+    "User",
+    "Document",
+    "DocumentChunk",
+    "VectorColumn",
+    "IngestionJob",
+]

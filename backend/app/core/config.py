@@ -39,12 +39,22 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://courtmind_user:courtmind_password@localhost:5432/courtmind_db"
     VECTOR_DATABASE_URL: str = "postgresql://courtmind_user:courtmind_password@localhost:5432/courtmind_db"
 
-    # LLM & Embedding Settings (Placeholders for upcoming phases)
+    # LLM & Embedding Settings
     LLM_PROVIDER: str = "openai"
     LLM_API_KEY: str = ""
     LLM_MODEL_NAME: str = "gpt-4o-mini"
+    LLM_TEMPERATURE: float = 0.3
+    EMBEDDING_PROVIDER: str = "sentence-transformers"
     EMBEDDING_MODEL: str = "sentence-transformers/all-MiniLM-L6-v2"
     EMBEDDING_DIMENSION: int = 384
+
+    # External Legal Search Provider (Mode B Optional Search)
+    EXTERNAL_SEARCH_PROVIDER: str = "none"
+    EXTERNAL_SEARCH_API_KEY: str = ""
+
+    # Storage & Upload Limits
+    PDF_STORAGE_DIR: str = "./data/stored_documents"
+    MAX_UPLOAD_SIZE_MB: int = 50
 
 
 settings = Settings()
