@@ -1,20 +1,36 @@
-# Environments & Secrets
+# ==============================================================================
+# CourtMind — .gitignore
+# Rules: ignore secrets, generated files, and local artifacts.
+# Anyone who clones the repo just needs to:
+#   1. cp .env.example .env  (then fill in real values)
+#   2. cd frontend && npm install && npm run dev
+#   3. pip install -r backend/requirements.txt  (in a venv)
+# ==============================================================================
+
+# ── Secrets & Environment Variables ───────────────────────────────────────────
+# .env.example IS committed (shows which vars are needed, with placeholder values)
 .env
 .env.local
 .env.*.local
 *.env
 !.env.example
+!**/.env.example
 
-# Python
+# ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
+
+# Virtual environments (any common name)
 env/
 venv/
 .venv/
 ENV/
+.env/
+
+# Distribution / packaging
 build/
 develop-eggs/
 dist/
@@ -30,8 +46,9 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
-# Testing & Coverage
+# ── Testing & Coverage ────────────────────────────────────────────────────────
 .pytest_cache/
 .coverage
 .coverage.*
@@ -41,13 +58,18 @@ coverage.xml
 *.cover
 .hypothesis/
 
-# Machine Learning & Data
+# ── Machine Learning & Data ───────────────────────────────────────────────────
+# Raw/processed data stays local (too large for git)
 ml/data/raw/*
 !ml/data/raw/.gitkeep
 ml/data/processed/*
 !ml/data/processed/.gitkeep
+
+# Trained model artefacts stay local (use DVC / HuggingFace Hub instead)
 ml/models/saved_models/*
 !ml/models/saved_models/.gitkeep
+
+# Common ML file formats
 *.joblib
 *.pkl
 *.pickle
@@ -59,26 +81,37 @@ ml/models/saved_models/*
 *.model
 *.parquet
 *.feather
+
+# Data files — keep the sample schema so new devs understand the expected format
 *.csv
 !ml/data/sample_schema.csv
 
-# Jupyter Notebooks
+# ── Jupyter Notebooks ─────────────────────────────────────────────────────────
 .ipynb_checkpoints
 */.ipynb_checkpoints/*
 
-# Node / Frontend
+# ── Node / Frontend ───────────────────────────────────────────────────────────
+# node_modules is re-created by `npm install`
 frontend/node_modules/
+
+# Vite production build output (re-created by `npm run build`)
 frontend/dist/
 frontend/dist-ssr/
+
+# Vite/Rollup cache
 frontend/.cache/
 frontend/coverage/
+
+# npm/yarn/pnpm debug logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+
+# TypeScript incremental build info
 *.tsbuildinfo
 
-# IDEs and OS
+# ── IDEs and OS ───────────────────────────────────────────────────────────────
 .idea/
 .vscode/
 *.swp
