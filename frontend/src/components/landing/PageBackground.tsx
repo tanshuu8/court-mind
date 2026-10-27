@@ -1,31 +1,40 @@
 import React from 'react';
 
 /**
- * PageBackground — full-page decorative 3D layer.
- * Absolutely positioned, covers the entire page (not just the hero),
- * pointer-events: none, aria-hidden.
+ * PageBackground — fixed, full-viewport, animated layer.
+ * - Pure #080808 black base (set on #landing-root)
+ * - Animated drifting grid — dark gray lines drift diagonally
+ * - Single soft warm glow — very restrained, top-left
+ * - pointer-events: none, aria-hidden, z-index: 0
  */
 const PageBackground: React.FC = () => (
   <div
     aria-hidden="true"
-    className="fixed inset-0 overflow-hidden pointer-events-none"
-    style={{ zIndex: 0 }}
+    style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      width: '100vw',
+      height: '100vh',
+      zIndex: 0,
+      pointerEvents: 'none',
+      overflow: 'hidden',
+    }}
   >
-    {/* Fine grid — 64 px squares, slowly drifts down */}
-    <div className="ld-grid-fine" />
+    {/* Animated drifting grid — moves diagonally, stays dark */}
+    <div className="ld-bg-animated-grid" />
 
-    {/* Coarse grid — 256 px squares, 3-D tilt, opposite drift */}
-    <div className="ld-grid-coarse" />
-
-    {/* Warm bronze radial glow centered around 70 % x / 35 % y */}
-    <div className="ld-glow" />
-
-    {/* Subtle vignette at page edges */}
+    {/* Single restrained warm glow — top-left only */}
     <div
-      className="absolute inset-0"
       style={{
+        position: 'absolute',
+        top: '-10%',
+        left: '-5%',
+        width: '50vw',
+        height: '65vh',
         background:
-          'radial-gradient(ellipse 80% 60% at 50% 50%, transparent 55%, rgba(11,9,7,.45) 100%)',
+          'radial-gradient(ellipse at 25% 25%, rgba(201,154,107,.055) 0%, transparent 60%)',
+        pointerEvents: 'none',
       }}
     />
   </div>

@@ -1,143 +1,236 @@
 import React from 'react';
-import { ChevronRight, ArrowRight, ShieldCheck, Brain, Clock } from 'lucide-react';
-import { ButtonLink, ButtonAnchor } from '../ui/Button';
-import HeroScene3D from './HeroScene3D';
+import { ChevronRight, LogIn, FileText, MessageSquare, Clock } from 'lucide-react';
+import { ButtonLink } from '../ui/Button';
 
-const TRUST_ITEMS = [
-  {
-    icon: <Brain size={14} />,
-    title: 'Smarter Analysis',
-    sub: 'From complex documents',
-  },
-  {
-    icon: <ShieldCheck size={14} />,
-    title: 'Clear Insights',
-    sub: 'With explainable AI',
-  },
-  {
-    icon: <Clock size={14} />,
-    title: 'Better Decisions',
-    sub: 'For your legal journey',
-  },
+/* ─── Product Preview Panel ──────────────────────────────────────────────── */
+const TIMELINE_STEPS = [
+  { label: 'Case Filed',     date: 'Jan 2024', done: true  },
+  { label: 'First Hearing',  date: 'Mar 2024', done: true  },
+  { label: 'Evidence Round', date: 'May 2024', done: true  },
+  { label: 'Next Date',      date: 'Pending',  done: false },
 ] as const;
 
+const ProductPreview: React.FC = () => (
+  <div
+    className="ld-preview"
+    aria-label="CourtMind interface preview — illustrative only"
+    style={{ width: '100%', maxWidth: 430 }}
+  >
+    {/* ── Window chrome ── */}
+    <div className="ld-preview-header">
+      <div className="ld-preview-dot" style={{ background: '#FF5F57' }} />
+      <div className="ld-preview-dot" style={{ background: '#FEBC2E' }} />
+      <div className="ld-preview-dot" style={{ background: '#28C840' }} />
+      <div style={{ flex: 1 }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '.72rem', color: 'rgba(255,255,255,.45)' }}>
+        <FileText size={12} style={{ color: '#C99A6B' }} />
+        court_order.pdf
+        <span style={{ fontSize: '.58rem', background: 'rgba(201,154,107,.14)', color: '#C99A6B', padding: '1px 6px', borderRadius: 3, border: '1px solid rgba(201,154,107,.18)', marginLeft: 3 }}>
+          Analysed
+        </span>
+      </div>
+      <div style={{ flex: 1 }} />
+      <span style={{ fontSize: '.58rem', color: 'rgba(255,255,255,.18)', fontStyle: 'italic' }}>
+        Illustrative only
+      </span>
+    </div>
+
+    {/* ── Q & A ── */}
+    <div className="ld-preview-qa">
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 12 }}>
+        <MessageSquare size={13} style={{ color: 'rgba(255,255,255,.28)', marginTop: 1, flexShrink: 0 }} />
+        <p className="ld-preview-question" style={{ margin: 0 }}>
+          "What happened in the last hearing?"
+        </p>
+      </div>
+      <div style={{ paddingLeft: 21, borderLeft: '2px solid rgba(201,154,107,.22)' }}>
+        <p className="ld-preview-answer" style={{ margin: '0 0 9px' }}>
+          The last recorded hearing on{' '}
+          <strong style={{ color: '#F0E4CC' }}>12 March 2024</strong>{' '}
+          involved arguments on the admissibility of digital evidence.
+          The judge deferred the ruling pending additional documents from both parties.
+        </p>
+        <div className="ld-preview-source">
+          <FileText size={9} />
+          Source: Para. 4, Page 3 — court_order.pdf
+        </div>
+      </div>
+    </div>
+
+    {/* ── Timeline ── */}
+    <div className="ld-preview-timeline">
+      <div className="ld-preview-tl-label">
+        <Clock size={9} style={{ display: 'inline', marginRight: 4, verticalAlign: 'middle' }} />
+        Case Timeline
+      </div>
+      <div className="ld-preview-tl-row">
+        {TIMELINE_STEPS.map((step, i) => (
+          <React.Fragment key={step.label}>
+            <div className="ld-preview-tl-step">
+              <div
+                className="ld-preview-tl-dot"
+                style={{
+                  background: step.done ? '#C99A6B' : 'rgba(255,255,255,.14)',
+                  boxShadow: step.done ? '0 0 0 2px rgba(201,154,107,.2)' : 'none',
+                }}
+              />
+              <div className="ld-preview-tl-name">{step.label}</div>
+              <div className="ld-preview-tl-date">{step.date}</div>
+            </div>
+            {i < TIMELINE_STEPS.length - 1 && <div className="ld-preview-tl-line" />}
+          </React.Fragment>
+        ))}
+      </div>
+    </div>
+  </div>
+);
+
+/* ─── Hero ────────────────────────────────────────────────────────────────── */
 const Hero: React.FC = () => (
   <section
     id="home"
     aria-labelledby="hero-heading"
-    className="relative overflow-hidden"
-    style={{ minHeight: 'calc(100vh - 4rem)' }}
+    style={{
+      width: '100%',
+      minHeight: 'calc(100vh - 60px)',
+      display: 'flex',
+      alignItems: 'center',
+      position: 'relative',
+      overflow: 'hidden',
+    }}
   >
+    {/* Subtle background grid */}
     <div
-      className="mx-auto px-8 flex flex-col lg:flex-row items-center gap-14 py-20 lg:py-0"
-      style={{ maxWidth: '1120px', minHeight: 'calc(100vh - 4rem)' }}
+      aria-hidden="true"
+      style={{
+        position: 'absolute',
+        inset: 0,
+        backgroundImage: `
+          linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,.022) 1px, transparent 1px)
+        `,
+        backgroundSize: '72px 72px',
+        pointerEvents: 'none',
+      }}
+    />
+
+    {/* Very faint warm glow — top-left only */}
+    <div
+      aria-hidden="true"
+      style={{
+        position: 'absolute',
+        top: '-5%',
+        left: '-5%',
+        width: '45vw',
+        height: '60vh',
+        background: 'radial-gradient(ellipse at 25% 30%, rgba(201,154,107,.06) 0%, transparent 65%)',
+        pointerEvents: 'none',
+      }}
+    />
+
+    {/* ── Two-column grid ─────────────────────────────────────────────────── */}
+    <div
+      style={{
+        width: '100%',
+        maxWidth: 1280,
+        margin: '0 auto',
+        padding: 'clamp(28px, 5vw, 56px) clamp(20px, 4vw, 48px)',
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: 'clamp(24px, 4vw, 52px)',
+        alignItems: 'center',
+      }}
     >
-      {/* ── Left: Copy ─────────────────────────────────────────────────────── */}
-      <div className="flex-1 ld-slide-up lg:py-20" style={{ maxWidth: 540 }}>
-        {/* Eyebrow badge */}
-        <div className="ld-badge mb-7">
-          ✦ AI-Powered Legal Intelligence
+      {/* ── Left: Copy ────────────────────────────────────────────────────── */}
+      <div className="ld-slide-up">
+        {/* Eyebrow */}
+        <div
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            fontSize: '.6rem',
+            fontWeight: 700,
+            letterSpacing: '.2em',
+            textTransform: 'uppercase',
+            color: '#C99A6B',
+            marginBottom: '1.1rem',
+            opacity: .8,
+          }}
+        >
+          <span style={{ display: 'inline-block', width: 4, height: 4, borderRadius: '50%', background: '#C99A6B' }} />
+          AI-Powered Legal Intelligence
         </div>
 
         {/* H1 */}
         <h1
           id="hero-heading"
-          className="font-display font-bold text-ltext leading-[1.08] tracking-tight mb-6"
           style={{
-            fontSize: 'clamp(2.4rem, 4.5vw, 3.4rem)',
-            textShadow: '0 2px 16px rgba(0,0,0,.4)',
+            fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+            fontWeight: 800,
+            fontSize: 'clamp(2.1rem, 3.8vw, 3.4rem)',
+            lineHeight: 1.08,
+            letterSpacing: '-0.03em',
+            margin: '0 0 1.4rem',
+            color: '#FFFFFF',
           }}
         >
-          <span
-            className="block"
-            style={{
-              textShadow:
-                '0 1px 0 rgba(201,154,107,.5), 0 2px 0 rgba(201,154,107,.3), 0 4px 12px rgba(0,0,0,.5)',
-            }}
-          >
-            Understand Your Case.
-          </span>
-          <span className="block mt-1" style={{ color: '#D3C7B3' }}>
+          Understand Your Case.
+          <br />
+          <span style={{ color: 'rgba(255,255,255,.48)' }}>
             See the Bigger Picture.
           </span>
-          {/* Highlighted pill */}
-          <span className="block mt-2">
-            <span
-              className="inline-block px-4 py-1.5 rounded-xl font-bold"
-              style={{
-                background: '#F3E3C8',
-                color: '#1B1612',
-                fontSize: '0.9em',
-                boxShadow: '0 4px 18px rgba(243,227,200,.22), 0 1px 4px rgba(0,0,0,.2)',
-                transform: 'perspective(500px) rotateX(1.5deg)',
-                display: 'inline-block',
-              }}
-            >
-              Move Forward with Clarity.
-            </span>
+          <br />
+          <span style={{ color: 'rgba(255,255,255,.72)' }}>
+            Move Forward with Clarity.
           </span>
         </h1>
 
-        {/* Supporting paragraph */}
+
+
+
+        {/* Paragraph */}
         <p
-          className="text-ltext-muted leading-relaxed mb-8"
-          style={{ fontSize: '1.05rem', maxWidth: 480 }}
+          style={{
+            fontFamily: 'Inter, system-ui, sans-serif',
+            fontSize: 'clamp(.875rem, 1.2vw, 1rem)',
+            lineHeight: 1.72,
+            color: 'rgba(255,255,255,.46)',
+            maxWidth: 500,
+            margin: '0 0 1.75rem',
+          }}
         >
-          CourtMind helps bring court-document analysis, case timelines, and explainable
-          delay-risk insights together in one workspace so important case information is
-          easier to understand and follow.
+          CourtMind helps you understand legal documents, explore case timelines,
+          and uncover important insights with AI-powered legal intelligence.
         </p>
 
-        {/* CTA buttons */}
-        <div className="flex flex-wrap gap-3 mb-10">
+        {/* CTAs */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.65rem', alignItems: 'center' }}>
           <ButtonLink to="/register" variant="primary">
-            Get Started <ChevronRight size={16} />
+            Explore CourtMind <ChevronRight size={15} />
           </ButtonLink>
-          <ButtonAnchor
-            href="#features"
-            variant="ghost"
-            onClick={(e) => {
-              e.preventDefault();
-              document.querySelector('#features')?.scrollIntoView({ behavior: 'smooth' });
-            }}
-          >
-            Explore Features <ArrowRight size={16} />
-          </ButtonAnchor>
-        </div>
-
-        {/* Trust items */}
-        <div className="flex flex-wrap gap-5">
-          {TRUST_ITEMS.map(({ icon, title, sub }) => (
-            <div key={title} className="flex items-center gap-2.5">
-              <span
-                className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                style={{ background: 'rgba(201,154,107,.14)', color: '#C99A6B' }}
-              >
-                {icon}
-              </span>
-              <div>
-                <div style={{ fontSize: '.78rem', fontWeight: 600, color: '#D3C7B3', lineHeight: 1.2 }}>{title}</div>
-                <div style={{ fontSize: '.7rem', color: 'rgba(201,187,166,.5)' }}>{sub}</div>
-              </div>
-            </div>
-          ))}
+          <ButtonLink to="/login" variant="ghost">
+            <LogIn size={14} /> Sign In
+          </ButtonLink>
         </div>
       </div>
 
-      {/* ── Right: 3D Scene ────────────────────────────────────────────────── */}
-      <div
-        className="flex-1 hidden lg:flex items-center justify-center"
-        style={{ minHeight: 580 }}
-      >
-        <HeroScene3D />
+      {/* ── Right: Preview ──────────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+        <ProductPreview />
       </div>
     </div>
 
-    {/* Bottom fade into next section */}
+    {/* Bottom fade */}
     <div
-      className="absolute bottom-0 left-0 right-0 h-32 pointer-events-none"
       aria-hidden="true"
-      style={{ background: 'linear-gradient(to bottom, transparent, rgba(11,9,7,.8))' }}
+      style={{
+        position: 'absolute',
+        bottom: 0, left: 0, right: 0,
+        height: 100,
+        background: 'linear-gradient(to bottom, transparent, rgba(8,8,8,.6))',
+        pointerEvents: 'none',
+      }}
     />
   </section>
 );

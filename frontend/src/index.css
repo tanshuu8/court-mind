@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300..900;1,14..32,300..700&display=swap');
+﻿@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300..900;1,14..32,300..700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..700&display=swap');
 
 
@@ -9,6 +9,8 @@
 @layer base {
   *, *::before, *::after { box-sizing: border-box; }
 
+  html, body { margin: 0; padding: 0; width: 100%; }
+
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -17,8 +19,15 @@
 
   body {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    background: #F5F1EA;
     color: #0a0a0a;
+  }
+
+  /* Full-width root — every page sets its own background */
+  #root {
+    min-height: 100vh;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
   }
 
   ::-webkit-scrollbar          { width: 5px; height: 5px; }
@@ -1451,7 +1460,7 @@
 
 
 /* ---------------------------------------------------------------------------
-   LANDING v2 � ld-* namespace
+   LANDING v2 � ld-* namespace
    All styles scoped to ld-* prefix; no other page is affected.
 ---------------------------------------------------------------------------- */
 
@@ -1516,4 +1525,612 @@
   .ld-beam,.ld-scale-float,.ld-grid-fine,.ld-grid-coarse,.ld-slide-up{animation:none!important}
   .ld-feature-card:hover{transform:none!important}
   .ld-btn-primary:hover,.ld-btn-ghost:hover{transform:none!important}
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LANDING v4 — Black background + strong 3D headline + product preview
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Navbar — pure black, full width ─────────────────────────────────────── */
+.ld-nav {
+  width: 100% !important;
+  left: 0; right: 0;
+  background: #080808 !important;
+  border-bottom: 1px solid rgba(255,255,255,.07) !important;
+}
+
+/* ── 3D headline — the strongest visual element in the hero ──────────────── */
+/*
+ * "Move Forward with Clarity."
+ * Front face: warm ivory #F5EDD8
+ * Extrusion:  right+down offset, progressively darker bronze
+ * Highlight:  sharp top-left edge, warm white
+ * Shadow:     deep cast shadow anchors the letters to the black bg
+ */
+.ld-3d-headline {
+  display: inline-block;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-weight: 900;
+  color: #F5EDD8;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+  text-shadow:
+    /* Sharp highlight — top-left edge */
+    -1px -1px 0   rgba(255,248,228,.6),
+    /* Extrusion layers — right+down, each +1px further */
+     1px  1px 0   #A87240,
+     2px  2px 0   #956030,
+     3px  3px 0   #824F22,
+     4px  4px 0   #6F3F16,
+     5px  5px 0   #5D310C,
+     6px  6px 0   #4C2506,
+    /* Deep cast shadow */
+     8px 10px 20px rgba(0,0,0,.95),
+    12px 16px 40px rgba(0,0,0,.7);
+  /* Micro perspective tilt — enhances depth on desktop */
+  transform: perspective(700px) rotateX(1.5deg);
+}
+
+@media (max-width: 768px) {
+  .ld-3d-headline {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ld-3d-headline { transform: none !important; }
+}
+
+/* ── Product preview panel ───────────────────────────────────────────────── */
+.ld-preview {
+  background: #0E0E0E;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.04),
+    0 24px 60px rgba(0,0,0,.7),
+    0  8px 20px rgba(0,0,0,.5);
+}
+
+.ld-preview-header {
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(255,255,255,.07);
+  background: #0A0A0A;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ld-preview-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+}
+
+.ld-preview-qa {
+  padding: 18px;
+  border-bottom: 1px solid rgba(255,255,255,.05);
+}
+
+.ld-preview-question {
+  font-size: .8rem;
+  color: rgba(255,255,255,.45);
+  margin-bottom: 10px;
+  font-style: italic;
+}
+
+.ld-preview-answer {
+  font-size: .82rem;
+  color: rgba(255,255,255,.78);
+  line-height: 1.65;
+}
+
+.ld-preview-source {
+  margin-top: 10px;
+  font-size: .7rem;
+  color: rgba(201,154,107,.7);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  background: rgba(201,154,107,.07);
+  border-radius: 6px;
+  width: fit-content;
+  border: 1px solid rgba(201,154,107,.12);
+}
+
+.ld-preview-timeline {
+  padding: 16px 18px;
+}
+
+.ld-preview-tl-label {
+  font-size: .62rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  color: rgba(255,255,255,.28);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.ld-preview-tl-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+}
+
+.ld-preview-tl-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.ld-preview-tl-dot {
+  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+}
+
+.ld-preview-tl-name {
+  font-size: .65rem;
+  font-weight: 600;
+  color: rgba(255,255,255,.65);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.ld-preview-tl-date {
+  font-size: .58rem;
+  color: rgba(255,255,255,.3);
+  text-align: center;
+}
+
+.ld-preview-tl-line {
+  flex: 1;
+  height: 1px;
+  background: rgba(201,154,107,.22);
+  margin-top: 4px;
+  min-width: 12px;
+}
+
+/* ── Feature section on dark ─────────────────────────────────────────────── */
+.ld-section-dark .ld-feature-card {
+  background: #0E0E0E !important;
+  border-color: rgba(255,255,255,.07) !important;
+}
+
+.ld-section-dark .ld-feature-card:hover {
+  border-color: rgba(201,154,107,.25) !important;
+}
+/* ── Hero two-column → stack on mobile ────────────────────────────────────── */
+@media (max-width: 1024px) {
+  #home > div[style*="grid"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ── Dark-mode section overrides for feature/hiw/cta/footer ──────────────── */
+/* Ensure sections inherit the black background, not a cream/beige */
+#features,
+#about,
+#contact {
+  background: transparent !important;
+}
+
+/* Feature cards on black bg */
+#features .ld-feature-card {
+  background: #0E0E0E;
+  border-color: rgba(255,255,255,.08);
+}
+
+#features .ld-feature-card:hover {
+  border-color: rgba(201,154,107,.28) !important;
+}
+
+/* How-it-works step circles on black */
+#about .ld-step-circle {
+  background: #080808 !important;
+}
+
+/* Section H2 colour on dark bg */
+#features h2,
+#about h2,
+#contact h2 {
+  color: #F4EBDD !important;
+}
+
+/* Section eyebrow on dark */
+#features .ld-badge,
+#about .ld-badge {
+  color: #C99A6B;
+}
+
+/* Paragraph text on dark */
+#features p,
+#about p,
+#contact p {
+  color: rgba(255,255,255,.5) !important;
+}
+
+/* Feature card title/desc on dark */
+.ld-feature-card h3 { color: #F4EBDD !important; }
+.ld-feature-card p  { color: rgba(255,255,255,.48) !important; }
+
+/* Step text on dark */
+.ld-step h3 { color: #F4EBDD !important; }
+.ld-step p  { color: rgba(255,255,255,.45) !important; }
+
+/* Disclaimer note on dark */
+.ld-disclaimer-card {
+  background: rgba(201,154,107,.055) !important;
+  border-color: rgba(201,154,107,.18) !important;
+}
+
+.ld-disclaimer-heading { color: #F4EBDD !important; }
+.ld-disclaimer-body    { color: rgba(255,255,255,.48) !important; }
+
+/* CTA heading on dark */
+#contact h2 { color: #F4EBDD !important; }
+
+/* Footer on very dark */
+footer { background: #050505 !important; border-color: rgba(255,255,255,.07) !important; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LANDING v5 — Compact layout, transparent sliding highlight, all-black bg
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Sliding transparent accent behind the 3D headline ───────────────────── */
+@keyframes ld-accent-slide {
+  0%   { transform: translateX(-110%); }
+  100% { transform: translateX(210%);  }
+}
+
+.ld-3d-slide-accent {
+  position: absolute;
+  top: 0; bottom: 0;
+  left: 0;
+  width: 40%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(201,154,107,.07) 40%,
+    rgba(232,201,160,.09) 50%,
+    rgba(201,154,107,.07) 60%,
+    transparent 100%
+  );
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 0;
+  animation: ld-accent-slide 5s cubic-bezier(.45,0,.55,1) infinite;
+  animation-delay: 1.5s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ld-3d-slide-accent { animation: none !important; }
+}
+
+/* ── Hero two-column → single column on tablet/mobile ────────────────────── */
+@media (max-width: 1024px) {
+  #home > div {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ── Ensure all landing sections are black / transparent ─────────────────── */
+#landing-root,
+#landing-root > div,
+#landing-root main,
+#landing-root section,
+#landing-root footer,
+#landing-root header {
+  background-color: transparent;
+}
+
+/* Only the root shell itself sets the base black */
+#landing-root {
+  background: #080808 !important;
+}
+
+/* Navbar must be black */
+.ld-nav {
+  background: rgba(8,8,8,.96) !important;
+  border-bottom-color: rgba(255,255,255,.07) !important;
+}
+
+/* Section padding — keep compact */
+#features { padding: 72px 0; }
+#about    { padding: 72px 0; }
+#contact  { padding: 72px 0; }
+
+/* Feature section eyebrow + heading on black */
+#features .ld-badge { color: #C99A6B; border-color: rgba(201,154,107,.22); }
+#features h2 { color: #F0E4CC !important; }
+#features > div > header > p { color: rgba(255,255,255,.45) !important; }
+
+/* Feature card on black — override any old brown/warm card bg */
+.ld-feature-card {
+  background: #0E0E0E !important;
+  border-color: rgba(255,255,255,.08) !important;
+}
+.ld-feature-card:hover {
+  border-color: rgba(201,154,107,.28) !important;
+}
+.ld-feature-card h3 { color: #F0E4CC !important; }
+.ld-feature-card p  { color: rgba(255,255,255,.45) !important; }
+
+/* How-it-works on black */
+#about .ld-badge { color: #C99A6B; border-color: rgba(201,154,107,.22); }
+#about h2  { color: #F0E4CC !important; }
+.ld-step h3 { color: #F0E4CC !important; }
+.ld-step p  { color: rgba(255,255,255,.42) !important; }
+.ld-step-circle {
+  background: #080808 !important;
+  border-color: rgba(201,154,107,.5) !important;
+  color: #D9A66E !important;
+}
+
+/* Disclaimer on black */
+[role="note"] {
+  background: rgba(201,154,107,.045) !important;
+  border-color: rgba(201,154,107,.16) !important;
+}
+[role="note"] strong { color: #F0E4CC !important; }
+[role="note"] p      { color: rgba(255,255,255,.45) !important; }
+
+/* CTA section on black */
+#contact h2 { color: #F0E4CC !important; }
+#contact p  { color: rgba(255,255,255,.42) !important; }
+
+/* Footer on very dark */
+#landing-root footer {
+  background: #050505 !important;
+  border-top-color: rgba(255,255,255,.06) !important;
+}
+#landing-root footer span,
+#landing-root footer p { color: rgba(255,255,255,.3) !important; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   FULL-WIDTH FIX + ANIMATED BLACK BACKGROUND (v6)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Nuclear reset — override Tailwind preflight and any browser defaults */
+html, body, #root {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  overflow-x: hidden !important;
+}
+
+/* Landing root — true edge-to-edge black */
+#landing-root {
+  width: 100vw !important;
+  max-width: 100vw !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: #080808 !important;
+  position: relative !important;
+  left: 0 !important;
+  right: 0 !important;
+  overflow-x: hidden !important;
+}
+
+/* Navbar — 100vw, no side shrink */
+#landing-root .ld-nav,
+#landing-root header {
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* Sections — full width */
+#landing-root section,
+#landing-root main,
+#landing-root footer {
+  width: 100% !important;
+  max-width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* Animated drifting grid keyframe */
+@keyframes ld-bg-drift {
+  from { background-position: 0 0; }
+  to   { background-position: 72px 72px; }
+}
+
+/* The animated grid layer itself */
+.ld-bg-animated-grid {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+  background-size: 72px 72px;
+  animation: ld-bg-drift 12s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ld-bg-animated-grid { animation: none !important; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LANDING v7 — Compact spacing + form focus styles
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Compact section padding */
+#features, #about, #contact { padding: 64px 0 !important; }
+
+/* Legal-page shared styles */
+.lp-legal-page {
+  width: 100%;
+  min-height: 100vh;
+  background: #080808;
+  color: rgba(255,255,255,.82);
+  font-family: Inter, system-ui, sans-serif;
+}
+
+/* Form inputs on dark */
+.ld-input {
+  width: 100%;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 8px;
+  padding: 11px 14px;
+  font-size: .875rem;
+  color: rgba(255,255,255,.85);
+  font-family: inherit;
+  outline: none;
+  transition: border-color .18s, background .18s;
+  box-sizing: border-box;
+}
+.ld-input::placeholder { color: rgba(255,255,255,.25); }
+.ld-input:focus {
+  border-color: rgba(201,154,107,.5);
+  background: rgba(255,255,255,.06);
+}
+.ld-input:hover:not(:focus) { border-color: rgba(255,255,255,.18); }
+
+textarea.ld-input { resize: vertical; min-height: 110px; }
+
+.ld-label {
+  display: block;
+  font-size: .72rem;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.4);
+  margin-bottom: 5px;
+}
+
+/* How-it-works v2 step hover */
+.ld-step-v2 {
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+.ld-step-v2:hover {
+  transform: translateY(-3px);
+}
+.ld-step-v2:hover .ld-step-v2-num {
+  box-shadow: 0 0 0 4px rgba(201,154,107,.15);
+}
+.ld-step-v2-num {
+  transition: box-shadow .2s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ld-step-v2:hover { transform: none; }
+}
+
+/* Contact form grid — stack on mobile */
+@media (max-width: 768px) {
+  #contact > div > div[style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
+  .ld-preview { max-width: 100% !important; }
+}
+
+/* Contact form name/email row — stack on very small screens */
+@media (max-width: 480px) {
+  #contact form > div[style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Footer grid — stack on mobile */
+@media (max-width: 640px) {
+  #landing-root footer > div > div[style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* How it works grid — stack on very small screens handled by auto-fit */
+
+/* Cream sliding highlight for "Move Forward with Clarity." */
+@keyframes ld-cream-slide-anim {
+  0%   { transform: translateX(-130%); }
+  100% { transform: translateX(230%);  }
+}
+
+.ld-cream-slide {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 50%;
+  background: linear-gradient(
+    90deg,
+    transparent            0%,
+    rgba(244,235,221,.0)   10%,
+    rgba(244,235,221,.08)  35%,
+    rgba(248,240,228,.13)  50%,
+    rgba(244,235,221,.08)  65%,
+    rgba(244,235,221,.0)   90%,
+    transparent            100%
+  );
+  pointer-events: none;
+  z-index: 0;
+  border-radius: 4px;
+  animation: ld-cream-slide-anim 4.5s cubic-bezier(.4,0,.6,1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ld-cream-slide { animation: none !important; }
+}
+
+
+
+
+
+/* ── "Move Forward with Clarity." cream pill ────────────────────────────── */
+@keyframes ld-clarity-pulse {
+  0%, 100% {
+    box-shadow: none;
+    border-color: rgba(243,227,200,.16);
+    background: rgba(243,227,200,.07);
+  }
+  50% {
+    box-shadow: 0 0 16px 2px rgba(243,227,200,.07);
+    border-color: rgba(243,227,200,.28);
+    background: rgba(243,227,200,.1);
+  }
+}
+
+.ld-clarity-pill {
+  display: inline;
+  background: rgba(243,227,200,.07);
+  border: 1px solid rgba(243,227,200,.18);
+  color: rgba(255,255,255,.82);
+  padding: 2px 8px;
+  border-radius: 6px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  animation: ld-clarity-pulse 3.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ld-clarity-pill { animation: none !important; }
+}
+/* Tighten pill vertical padding to prevent line collision */
+.ld-clarity-pill {
+  padding-top: 1px !important;
+  padding-bottom: 1px !important;
+}
+
+/* Pill now outside H1 — standalone inline-block, no collision possible */
+.ld-clarity-pill {
+  display: inline-block !important;
+  padding: 3px 12px !important;
+  font-size: clamp(1.3rem, 2.5vw, 2rem) !important;
+  font-weight: 800 !important;
+  font-family: Inter, system-ui, sans-serif !important;
+  color: rgba(255,255,255,.75) !important;
+  letter-spacing: -0.02em !important;
 }

@@ -30,7 +30,11 @@ const Navbar: React.FC = () => {
   };
 
   return (
-    <header className="ld-nav" role="banner">
+    <header
+      className="ld-nav"
+      role="banner"
+      style={{ width: '100%' }}
+    >
       <div
         className="mx-auto flex items-center gap-6 px-8 h-16"
         style={{ maxWidth: '1120px' }}

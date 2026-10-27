@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight } from 'lucide-react';
+
 
 /* ── 3D CSS icon shapes ──────────────────────────────────────────────────── */
 
@@ -149,11 +149,11 @@ const ICONS: Record<FeatureCardProps['iconType'], React.ReactNode> = {
 /* ── FeatureCard ─────────────────────────────────────────────────────────── */
 const FeatureCard: React.FC<FeatureCardProps> = ({ iconType, title, description }) => (
   <article
-    className="ld-feature-card relative flex flex-col gap-5 rounded-2xl p-7"
+    className="ld-feature-card relative flex flex-col gap-4 rounded-2xl p-6"
     style={{
-      background: '#16110D',
-      border: '1px solid rgba(232,201,160,.16)',
-      minHeight: 320,
+      background: '#0E0E0E',
+      border: '1px solid rgba(255,255,255,.08)',
+      minHeight: 260,
     }}
   >
     {/* 3D icon */}
@@ -177,20 +177,7 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ iconType, title, description 
       </p>
     </div>
 
-    {/* Arrow button */}
-    <div>
-      <span
-        className="inline-flex items-center justify-center w-9 h-9 rounded-full"
-        style={{
-          background: 'rgba(201,154,107,.14)',
-          color: '#C99A6B',
-          border: '1px solid rgba(201,154,107,.25)',
-        }}
-        aria-hidden="true"
-      >
-        <ArrowRight size={15} />
-      </span>
-    </div>
+
 
     {/* Top accent line (shows on hover via parent class) */}
     <div

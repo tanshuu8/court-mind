@@ -4,84 +4,70 @@ import Navbar         from '../../components/landing/Navbar';
 import Hero           from '../../components/landing/Hero';
 import FeatureGrid    from '../../components/landing/FeatureGrid';
 import HowItWorks     from '../../components/landing/HowItWorks';
+import ForWhoSection  from '../../components/landing/ForWhoSection';
 import DisclaimerNote from '../../components/landing/DisclaimerNote';
 import CtaSection     from '../../components/landing/CtaSection';
 import Footer         from '../../components/landing/Footer';
 
-/**
- * Landing — public marketing page at route "/"
- *
- * All sections are imported from src/components/landing/.
- * The route is registered in App.tsx and requires no changes there.
- */
+const HR = () => (
+  <div
+    aria-hidden="true"
+    style={{
+      width: '100%',
+      height: 1,
+      background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,.07) 25%, rgba(255,255,255,.07) 75%, transparent 100%)',
+    }}
+  />
+);
+
 const Landing: React.FC = () => (
   <div
     id="landing-root"
-    className="font-body antialiased relative"
     style={{
+      width: '100vw',
       minHeight: '100vh',
-      background: '#0B0907',
-      color: '#F4EBDD',
+      margin: 0,
+      padding: 0,
+      background: '#080808',
+      color: '#FFFFFF',
       overflowX: 'hidden',
+      fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+      position: 'relative',
     }}
   >
-    {/* Decorative full-page 3D background (grids + glow) */}
     <PageBackground />
 
-    {/* All real content sits above the background */}
-    <div className="relative" style={{ zIndex: 1 }}>
-      {/* ── Navigation ─────────────────────────────────────────── */}
+    <div style={{ position: 'relative', zIndex: 1, width: '100%' }}>
       <Navbar />
 
-      {/* ── Main content ────────────────────────────────────────── */}
-      <main id="main-content">
+      <main id="main-content" style={{ width: '100%' }}>
+
         {/* 1. Hero */}
         <Hero />
-
-        {/* Divider */}
-        <div
-          aria-hidden="true"
-          className="mx-auto"
-          style={{
-            maxWidth: '1120px',
-            margin: '0 auto',
-            height: 1,
-            background: 'linear-gradient(90deg,transparent,rgba(232,201,160,.12),transparent)',
-          }}
-        />
+        <HR />
 
         {/* 2. Features */}
         <FeatureGrid />
+        <HR />
 
-        {/* Divider */}
-        <div
-          aria-hidden="true"
-          style={{
-            height: 1,
-            background: 'linear-gradient(90deg,transparent,rgba(232,201,160,.12),transparent)',
-          }}
-        />
-
-        {/* 3. How It Works */}
+        {/* 3. How It Works — horizontal flow */}
         <HowItWorks />
+        <HR />
 
-        {/* 4. Disclaimer */}
+        {/* 4. For Citizens & Lawyers — extra top breathing room */}
+        <div style={{ paddingTop: 20 }} aria-hidden="true" />
+        <ForWhoSection />
+        <HR />
+
+        {/* 5. Disclaimer */}
         <DisclaimerNote />
+        <HR />
 
-        {/* Divider */}
-        <div
-          aria-hidden="true"
-          style={{
-            height: 1,
-            background: 'linear-gradient(90deg,transparent,rgba(232,201,160,.12),transparent)',
-          }}
-        />
-
-        {/* 5. CTA */}
+        {/* 6. Contact */}
         <CtaSection />
+
       </main>
 
-      {/* ── Footer ──────────────────────────────────────────────── */}
       <Footer />
     </div>
   </div>

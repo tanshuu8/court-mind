@@ -11,6 +11,8 @@ const LandingPage        = lazy(() => import('./pages/public/LandingPage'));
 const LoginPage          = lazy(() => import('./pages/public/LoginPage'));
 const RegisterPage       = lazy(() => import('./pages/public/RegisterPage'));
 const ForgotPasswordPage = lazy(() => import('./pages/public/ForgotPasswordPage'));
+const PrivacyPage        = lazy(() => import('./pages/public/PrivacyPage'));
+const TermsPage          = lazy(() => import('./pages/public/TermsPage'));
 
 // Citizen
 const MyCasesPage        = lazy(() => import('./pages/user/MyCasesPage'));
@@ -98,6 +100,9 @@ const AppRoutes: React.FC = () => (
       <Route path="/login"           element={<PublicRoute><LoginPage /></PublicRoute>} />
       <Route path="/register"        element={<PublicRoute><RegisterPage /></PublicRoute>} />
       <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
+      {/* Legal pages — accessible to all users regardless of auth state */}
+      <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/terms"   element={<TermsPage />} />
 
       {/* Citizen Portal */}
       <Route path="/user" element={<ProtectedRoute allowedRoles={['citizen']}><AppLayout /></ProtectedRoute>}>
