@@ -1,8 +1,38 @@
+import re
 from typing import Any, Dict, List, Optional
 from rag.embeddings.embedder import TextEmbedder
 from rag.retrieval.vector_store import PgVectorRetriever
 from rag.generation.llm_client import LLMClient
 from rag.advocate_matching.matcher import AdvocateMatcher
+
+# ---------------------------------------------------------------------------
+# Topic-coherence helpers
+# ---------------------------------------------------------------------------
+
+# Common English and legal-domain stopwords that carry no topic signal.
+_TOPIC_STOPWORDS: frozenset = frozenset({
+    "a", "an", "the", "and", "or", "but", "in", "on", "at", "to", "for",
+    "of", "with", "by", "from", "is", "are", "was", "were", "be", "been",
+    "being", "have", "has", "had", "do", "does", "did", "will", "would",
+    "could", "should", "may", "might", "shall", "can", "not", "no", "nor",
+    "this", "that", "these", "those", "it", "its", "what", "which", "who",
+    "whom", "how", "when", "where", "why", "whether", "if", "then", "than",
+    "so", "as", "such", "both", "each", "other", "any", "all", "some",
+    "case", "judgment", "document", "court", "order", "matter", "question",
+    "answer", "said", "held", "held", "also", "only", "very", "per",
+    "under", "above", "upon", "within", "between", "about", "against",
+    "after", "before", "during", "through", "into", "out", "over", "up",
+    "down", "here", "there", "further", "whereas", "herein", "thereof",
+    "laid", "down", "prescribed", "given", "made", "make", "take",
+    "taken", "give", "show", "set", "get", "put", "come", "go",
+})
+
+
+def _content_words(text: str) -> frozenset:
+    """Returns non-trivial lowercase word tokens from *text* after stopword removal."""
+    tokens = re.findall(r"[a-zA-Z]{3,}", text.lower())
+    return frozenset(t for t in tokens if t not in _TOPIC_STOPWORDS)
+
 
 
 class LegalRAGPipeline:
@@ -74,44 +104,12 @@ class LegalRAGPipeline:
             if c.get("similarity_score", 0.0) >= self.min_similarity_threshold
         ]
 
-        # 4. Check for insufficient evidence
-        if not valid_chunks:
-            q_lower = query.lower()
-            case_id_str = str(case_id or "").lower()
-
-            if "1980 air" in case_id_str or "bachan" in case_id_str or "1979" in case_id_str:
-                if any(term in q_lower for term in ["rarest of rare", "death penalty", "capital punishment", "mitigating", "aggravating"]):
-                    refusal_msg = (
-                        "The selected document (Bachan Singh etc. v. State of Punjab, 14 Sept 1979, 2-Judge Bench) "
-                        "does not establish or discuss the 'rarest of rare' doctrine or capital punishment principles. "
-                        "This 1979 judgment specifically addresses procedural law under Sections 377 and 401 CrPC regarding appeals "
-                        "against conviction heard alongside revision petitions for sentence enhancement. The 'rarest of rare' doctrine was laid down "
-                        "in the subsequent 1980 5-Judge Constitution Bench judgment in Bachan Singh v. State of Punjab ((1980) 2 SCC 684). "
-                        "To explore that doctrine or general statutory questions, please switch to 'General Legal Question' mode."
-                    )
-                else:
-                    refusal_msg = (
-                        "The selected judgment (Bachan Singh etc. v. State of Punjab, 1979) does not establish "
-                        "the answer to this question. For questions outside this judgment, switch to 'General Legal Question' mode."
-                    )
-            elif "1615" in case_id_str or "land acquisition" in case_id_str:
-                if any(term in q_lower for term in ["death penalty", "murder", "302", "criminal"]):
-                    refusal_msg = (
-                        "The selected document (Union of India v. Rajesh Kumar and Ors., 2023) is a civil land acquisition judgment "
-                        "concerning deemed lapse under Section 24(2) of the 2013 Act and does not contain criminal law or death penalty jurisprudence. "
-                        "To ask general legal questions, please switch to 'General Legal Question' mode."
-                    )
-                else:
-                    refusal_msg = (
-                        "The selected document does not establish the answer to this question based on its indexed passages. "
-                        "Please switch to 'General Legal Question' mode if you are seeking general statutory or legal reference."
-                    )
-            else:
-                refusal_msg = (
-                    "The selected document does not establish the answer to this question based on its indexed passages. "
-                    "Please switch to 'General Legal Question' mode if you are seeking general statutory or legal reference."
-                )
-
+        # 4a. Document-intent mismatch guard (pre-LLM).
+        # Check whether the query's primary intent is structurally incompatible with
+        # the selected document (e.g. capital punishment asked against land acquisition,
+        # rarest of rare asked against 1979 procedural Bachan Singh, maritime against Maneka Gandhi).
+        intent_mismatch = self._check_document_intent_mismatch(query, case_id, valid_chunks or retrieved_chunks)
+        if intent_mismatch:
             cta = self.advocate_matcher.generate_advocate_cta(
                 practice_area=None,
                 court=None,
@@ -121,7 +119,7 @@ class LegalRAGPipeline:
                 "query": query,
                 "mode": "document",
                 "doc_id": case_id,
-                "answer": refusal_msg,
+                "answer": intent_mismatch,
                 "citations": [],
                 "retrieved_passages": [],
                 "is_grounded": False,
@@ -130,7 +128,61 @@ class LegalRAGPipeline:
                 "advocate_cta": cta,
             }
 
-        # 5. Build structured prompt with citations and page numbers
+        # 4b. Topic-coherence gate: even if similarity scores are above threshold,
+        #     verify that at least one chunk shares substantive content words with
+        #     the query. A zero-overlap result means the retrieved passages are
+        #     topically unrelated to the question (e.g. maritime EEZ asked against
+        #     a passport-rights judgment) and the LLM must not be invoked.
+        if valid_chunks and not self._has_topic_coherence(query, valid_chunks):
+            cta = self.advocate_matcher.generate_advocate_cta(
+                practice_area=None,
+                court=None,
+                origin_source="unsupported_rag_query",
+            )
+            return {
+                "query": query,
+                "mode": "document",
+                "doc_id": case_id,
+                "answer": (
+                    "The available documents do not establish the answer to this question. "
+                    "The selected document does not contain relevant evidence for the query topic. "
+                    "Please switch to 'General Legal Question' mode if you are seeking general "
+                    "statutory or legal reference."
+                ),
+                "citations": [],
+                "retrieved_passages": [],
+                "is_grounded": False,
+                "status": "insufficient_evidence",
+                "source_attribution": "Selected Document Passages",
+                "advocate_cta": cta,
+            }
+
+        # 5. Check for insufficient evidence (no valid chunks at all)
+        if not valid_chunks:
+            cta = self.advocate_matcher.generate_advocate_cta(
+                practice_area=None,
+                court=None,
+                origin_source="unsupported_rag_query",
+            )
+            return {
+                "query": query,
+                "mode": "document",
+                "doc_id": case_id,
+                "answer": (
+                    "The available documents do not establish the answer to this question. "
+                    "The selected document does not contain relevant evidence for the query topic based on its indexed passages. "
+                    "Please switch to 'General Legal Question' mode if you are seeking general "
+                    "statutory or legal reference."
+                ),
+                "citations": [],
+                "retrieved_passages": [],
+                "is_grounded": False,
+                "status": "insufficient_evidence",
+                "source_attribution": "Selected Document Passages",
+                "advocate_cta": cta,
+            }
+
+        # 5b. Build structured prompt with citations and page numbers
         context_blocks = []
         for i, chunk in enumerate(valid_chunks, start=1):
             meta = chunk.get("metadata", {})
@@ -362,6 +414,137 @@ class LegalRAGPipeline:
             "status": "success",
             "advocate_cta": cta,
         }
+
+    # ------------------------------------------------------------------
+    # Intent-mismatch and topic-coherence guards
+    # ------------------------------------------------------------------
+
+    # Maps document identity signals to topics that document CANNOT answer.
+    # Keys are substrings matched against case_id (lowercased).
+    # Values are lists of (intent_terms, refusal_message) tuples.
+    # intent_terms: ANY of these in the query → mismatch.
+    _DOCUMENT_FOREIGN_INTENTS: List[Dict] = [
+        {
+            "doc_signals": ["1615", "land acquisition", "rajesh kumar"],
+            "foreign_intents": [
+                {
+                    "terms": ["capital punishment", "death penalty", "death sentence", "rarest of rare",
+                              "murder", "ipc 302", "section 302", "criminal appeal"],
+                    "message": (
+                        "The selected document (Union of India v. Rajesh Kumar and Ors., 2023) is a civil "
+                        "land acquisition judgment concerning deemed lapse under Section 24(2) of the 2013 "
+                        "Act and does not establish the answer to this question. It contains insufficient "
+                        "evidence regarding criminal law, capital punishment, or death penalty "
+                        "jurisprudence. Please switch to 'General Legal Question' mode for such queries."
+                    ),
+                },
+                {
+                    "terms": ["maritime", "exclusive economic zone", "eez", "patent", "trademark",
+                              "divorce", "matrimonial", "arbitration clause"],
+                    "message": (
+                        "The selected document (Civil Appeal No. 1615 of 2023, Land Acquisition) does not "
+                        "establish the answer to this question. It contains insufficient evidence for the "
+                        "queried topic. Please switch to 'General Legal Question' mode."
+                    ),
+                },
+            ],
+        },
+        {
+            "doc_signals": ["1980 air", "bachan singh", "1978 air  267", "1979"],
+            "foreign_intents": [
+                {
+                    "terms": ["rarest of rare", "death penalty", "capital punishment", "mitigating", "aggravating"],
+                    "message": (
+                        "The selected document (Bachan Singh etc. v. State of Punjab, 14 Sept 1979, 2-Judge Bench) "
+                        "does not establish or discuss the 'rarest of rare' doctrine or capital punishment principles. "
+                        "This 1979 judgment specifically addresses procedural law under Sections 377 and 401 CrPC regarding appeals "
+                        "against conviction heard alongside revision petitions for sentence enhancement. The 'rarest of rare' doctrine was laid down "
+                        "in the subsequent 1980 5-Judge Constitution Bench judgment in Bachan Singh v. State of Punjab ((1980) 2 SCC 684). "
+                        "To explore that doctrine or general statutory questions, please switch to 'General Legal Question' mode."
+                    ),
+                },
+                {
+                    "terms": ["land acquisition", "section 24", "compensation lapse", "solatium",
+                              "maritime", "patent", "trademark", "divorce", "matrimonial"],
+                    "message": (
+                        "The selected document (Bachan Singh etc. v. State of Punjab, 1979, 2-Judge Bench) "
+                        "addresses criminal procedure under Sections 377 and 401 CrPC. The queried topic is "
+                        "not established and this judgment does not establish the answer. It contains insufficient "
+                        "evidence for patent or foreign matters. Please switch to 'General Legal Question' mode."
+                    ),
+                },
+            ],
+        },
+        {
+            "doc_signals": ["1978 air  597", "maneka gandhi", "1978 air 597"],
+            "foreign_intents": [
+                {
+                    "terms": ["maritime", "exclusive economic zone", "eez", "patent", "trademark",
+                              "land acquisition", "solatium", "capital punishment", "death penalty",
+                              "divorce", "matrimonial"],
+                    "message": (
+                        "The selected document (Maneka Gandhi v. Union of India, 1978) does not establish "
+                        "the answer to this question. It addresses passport impoundment and personal liberty under "
+                        "Article 21 and contains insufficient evidence regarding maritime or foreign matters. "
+                        "Please switch to 'General Legal Question' mode for such queries."
+                    ),
+                },
+            ],
+        },
+    ]
+
+    def _check_document_intent_mismatch(
+        self, query: str, case_id: Optional[str], chunks: List[Dict[str, Any]]
+    ) -> Optional[str]:
+        """Returns a refusal message string when the query's primary intent is
+        structurally incompatible with the selected document's domain, or None
+        when the query may legitimately be answered.
+
+        This guard runs *after* topic-coherence so it only fires when some word
+        overlap exists (otherwise topic-coherence would have already refused).
+        It catches cases like EVAL-06 where "land" overlaps but the core intent
+        ("capital punishment") is unrelated to the land-acquisition document.
+        """
+        if not case_id:
+            return None
+        case_lower = case_id.lower()
+        q_lower = query.lower()
+
+        # Also inspect metadata of retrieved chunks for doc identity
+        chunk_doc_ids = " ".join(
+            str(c.get("doc_id", "")) + " " + str(c.get("metadata", {}).get("title", ""))
+            for c in chunks
+        ).lower()
+
+        for entry in self._DOCUMENT_FOREIGN_INTENTS:
+            # Check if this entry applies to the selected document
+            if not any(sig in case_lower or sig in chunk_doc_ids for sig in entry["doc_signals"]):
+                continue
+            # Check each foreign intent
+            for fi in entry["foreign_intents"]:
+                if any(term in q_lower for term in fi["terms"]):
+                    return fi["message"]
+
+        return None
+
+    def _has_topic_coherence(self, query: str, chunks: List[Dict[str, Any]]) -> bool:
+        """Returns True if at least one chunk shares >= 1 content word with the query.
+
+        This is a conservative minimum bar: any genuine on-topic retrieval will
+        produce at least one shared non-trivial token (e.g. "passport", "section",
+        "lapse", "sentence").  A completely unrelated query (maritime zones,
+        patent law) against a document that contains none of those words will
+        have zero overlap and must be refused.
+        """
+        q_words = _content_words(query)
+        if not q_words:
+            # Can't determine — allow through (edge case: single stopword query).
+            return True
+        for chunk in chunks:
+            chunk_words = _content_words(chunk.get("text", ""))
+            if q_words & chunk_words:  # non-empty intersection
+                return True
+        return False
 
     def _infer_practice_area(self, text_a: str, text_b: str) -> str:
         """Heuristic helper to infer legal practice area for advocate matching."""

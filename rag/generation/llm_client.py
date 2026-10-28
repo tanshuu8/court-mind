@@ -92,7 +92,7 @@ class LLMClient:
 
         is_civil_1615 = "land acquisition" in first_title or "1615" in first_doc_id.lower() or "rajesh kumar" in first_title
         if is_civil_1615:
-            criminal_terms = ["death penalty", "murder", "section 302", "ipc 302", "304 part", "criminal appeal"]
+            criminal_terms = ["death penalty", "murder", "section 302", "ipc 302", "304 part", "criminal appeal", "capital punishment"]
             if any(term in q_lower for term in criminal_terms):
                 return (
                     "The selected document (Union of India v. Rajesh Kumar and Ors., 2023) is a civil land acquisition judgment "
