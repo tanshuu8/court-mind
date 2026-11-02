@@ -107,6 +107,102 @@ export interface ConsultationRequest {
 
 // ─── Document & RAG Types ─────────────────────────────────────────────────────
 
+export interface Citation {
+  doc_id: string;
+  chunk_id: string;
+  chunk_index: number;
+  page_number: number;
+  title?: string;
+  court?: string;
+  year?: string;
+  similarity_score?: number;
+}
+
+export interface AdvocateCTA {
+  cta_title: string;
+  cta_description: string;
+  target_route: string;
+  non_blocking: boolean;
+  context_payload: Record<string, unknown>;
+}
+
+export interface DocumentInfo {
+  doc_id: string;
+  title?: string;
+  court?: string;
+  year?: string;
+  page_count?: number;
+  chunks_indexed?: number;
+  source?: string;
+}
+
+export interface DocumentsListResponse {
+  total: number;
+  documents: DocumentInfo[];
+  storage_type: string;
+  persistence_note: string;
+}
+
+export interface UploadResponse {
+  doc_id: string;
+  title?: string;
+  court?: string;
+  year?: string;
+  page_count: number;
+  chunks_indexed: number;
+  is_scanned: boolean;
+  status: string;
+  message?: string;
+}
+
+export interface AskRequest {
+  doc_id?: string;
+  question: string;
+  mode?: 'document' | 'general';
+  top_k?: number;
+}
+
+export interface AskResponse {
+  query: string;
+  mode: 'document' | 'general';
+  doc_id?: string;
+  answer: string;
+  citations: Citation[];
+  is_grounded: boolean;
+  status: string;
+  source_attribution?: string;
+  disclaimer?: string;
+  advocate_cta: AdvocateCTA;
+  provider?: string;
+  model?: string;
+}
+
+export interface SummarizeRequest {
+  doc_id: string;
+}
+
+export interface SummarizeResponse {
+  doc_id: string;
+  title?: string;
+  court?: string;
+  year?: string;
+  total_pages?: number;
+  total_chunks?: number;
+  summary: string;
+  status: string;
+  advocate_cta: AdvocateCTA;
+  provider?: string;
+  model?: string;
+}
+
+export interface RAGHealthResponse {
+  status: string;
+  vector_store?: { mode: string; chunks: number };
+  document_registry?: { count: number };
+  disk_storage?: { ok: boolean; pdf_files: number };
+  llm?: { provider: string; model: string; configured: boolean };
+}
+
 export interface LegalQuery {
   question: string;
   caseId?: string;

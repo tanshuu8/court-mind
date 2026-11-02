@@ -2,19 +2,21 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft, FileText, Clock, Scale, AlertCircle,
-  Info, ChevronDown, ChevronUp, TrendingUp, Upload,
+  Info, ChevronDown, ChevronUp, TrendingUp, Upload, Sparkles, RefreshCw,
 } from 'lucide-react';
 import { Button } from '../../components/common';
 import {
   uploadStore, getDocTypeLabel, formatFileSize,
   type UploadedCase, type AnalysisStatus,
 } from '../../services/uploadStore';
+import { ragApi } from '../../services/api';
+import type { SummarizeResponse } from '../../types';
 
-// ── Status config ──────────────────────────────────────────────────────────────
+// ── Status config ─────────────────────────────────────────────────────────────
 
 const STATUS_CFG: Record<AnalysisStatus, { label: string; dot: string; text: string; bg: string; border: string }> = {
   pending:    { label: 'Analysis Pending',  dot: '#B5ADA3', text: '#716B63', bg: '#F5F0E7', border: '#DED6C9' },
-  processing: { label: 'Processing…',       dot: '#d97706', text: '#d97706', bg: '#fffbeb', border: '#fed7aa' },
+  processing: { label: 'Processing...',     dot: '#d97706', text: '#d97706', bg: '#fffbeb', border: '#fed7aa' },
   complete:   { label: 'Analysis Ready',    dot: '#16a34a', text: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
   failed:     { label: 'Processing Failed', dot: '#dc2626', text: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
 };
@@ -72,29 +74,33 @@ const PendingBox: React.FC<{ title: string; message: string }> = ({ title, messa
   </div>
 );
 
-// ── Page ──────────────────────────────────────────────────────────────────────
+// ── Page ───────────────────────────────────────────────────────────────────────
 
 const AiAnalysisDetailPage: React.FC = () => {
   const { caseId }  = useParams<{ caseId: string }>();
   const navigate    = useNavigate();
   const [record, setRecord] = useState<UploadedCase | null | undefined>(undefined);
 
-  useEffect(() => {
-    if (!caseId) { setRecord(null); return; }
-    setRecord(uploadStore.get(caseId) ?? null);
+  const [summaryData, setSummaryData] = useState<SummarizeResponse | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
 
-    // Re-read if store changes (e.g. status update from another tab)
-    const unsub = uploadStore.onChange(() => {
-      setRecord(uploadStore.get(caseId) ?? null);
-    });
-    return unsub;
+  useEffect(() => {
+    if (!caseId) {
+      setRecord(null);
+      return;
+    }
+    const found = uploadStore.get(caseId);
+    setRecord(found ?? null);
   }, [caseId]);
 
-  // Loading
+  // Loading state
   if (record === undefined) {
     return (
-      <div className="p-6 lg:p-8 flex items-center justify-center min-h-64">
-        <div className="w-5 h-5 border-2 border-[#DED6C9] border-t-[#111111] rounded-full animate-spin" />
+      <div className="p-6 lg:p-8 animate-fade-in max-w-3xl">
+        <div className="h-6 w-32 bg-[#F5F0E7] rounded-lg animate-pulse mb-6" />
+        <div className="h-10 w-64 bg-[#F5F0E7] rounded-xl animate-pulse mb-8" />
+        <div className="h-48 bg-[#F5F0E7] rounded-2xl animate-pulse" />
       </div>
     );
   }
@@ -102,10 +108,11 @@ const AiAnalysisDetailPage: React.FC = () => {
   // Not found
   if (record === null) {
     return (
-      <div className="p-6 lg:p-8 max-w-3xl animate-fade-in">
+      <div className="p-6 lg:p-8 animate-fade-in max-w-3xl">
         <button
           onClick={() => navigate('/user/ai-analysis')}
           className="flex items-center gap-2 text-sm font-semibold text-[#716B63] hover:text-[#111111] transition-colors mb-6"
+          id="detail-back-not-found"
         >
           <ArrowLeft className="w-4 h-4" /> Back to AI Analysis
         </button>
@@ -128,10 +135,24 @@ const AiAnalysisDetailPage: React.FC = () => {
     day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
   });
 
-  // ── Whether real analysis results exist ──────────────────────────────────
-  // Currently always false — backend AI not connected.
-  // When backend provides results, set this to true and populate analysisData.
-  const hasRealAnalysis = false;
+  const docId = record?.backendDocId || record?.id;
+  const hasRealAnalysis = Boolean(summaryData?.summary || record?.summary);
+
+  const handleGenerateSummary = async () => {
+    if (!docId) return;
+    setSummaryLoading(true);
+    setSummaryError(null);
+    try {
+      const res = await ragApi.summarize(docId);
+      setSummaryData(res);
+      uploadStore.update(record.id, { summary: res.summary, status: 'complete' });
+    } catch (err: unknown) {
+      setSummaryError(err instanceof Error ? err.message : 'Summarization failed. Ensure document is indexed in vector store.');
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+
   const hasRealRiskPrediction = false;
 
   return (
@@ -161,7 +182,7 @@ const AiAnalysisDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* ── Section A: Document Details ─────────────────────────────────────── */}
+      {/* ── Section A: Document Details ────────────────────────────────────────── */}
       <div className="space-y-4">
         <Section id="document-details" title="Document Details" icon={<FileText className="w-4 h-4" />}>
           <div className="divide-y divide-[#F0EAE0]">
@@ -202,26 +223,73 @@ const AiAnalysisDetailPage: React.FC = () => {
           </div>
         </Section>
 
-        {/* ── Section B: AI Document Analysis ──────────────────────────────── */}
+        {/* ── Section B: AI Document Analysis ─────────────────────────────────── */}
         <Section id="ai-analysis" title="AI Document Analysis" icon={<Scale className="w-4 h-4" />} defaultOpen>
           {hasRealAnalysis ? (
-            /* When backend provides real results, render them here */
-            <div>
-              {/* Summary, entities, dates, legal issues, references go here */}
-              <p className="text-sm text-[#716B63]">Analysis results from the backend will appear here.</p>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-3 rounded-xl bg-[#F5F0E7] border border-[#DED6C9] text-xs">
+                <div>
+                  <span className="font-bold text-[#111111]">{summaryData?.title || record.fileName}</span>
+                  {summaryData?.total_pages ? (
+                    <span className="text-[#716B63] ml-2">({summaryData.total_pages} pages · {summaryData.total_chunks || 0} chunks)</span>
+                  ) : null}
+                </div>
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold text-[11px]">
+                  RAG 6-Part Summary
+                </span>
+              </div>
+              <div className="text-sm text-[#111111] whitespace-pre-wrap leading-relaxed p-4 rounded-xl bg-[#FFFCF7] border border-[#DED6C9]">
+                {summaryData?.summary || record.summary}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleGenerateSummary}
+                isLoading={summaryLoading}
+                leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
+              >
+                Re-generate Summary
+              </Button>
             </div>
           ) : (
             <div className="space-y-4">
+              {summaryError && (
+                <div className="flex items-start gap-2.5 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold">Backend Summarization Notice</p>
+                    <p className="mt-0.5">{summaryError}</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-xl bg-[#F5F0E7] border border-[#DED6C9] gap-3">
+                <div>
+                  <p className="text-sm font-bold text-[#111111]">Generate Structured 6-Part Legal Summary</p>
+                  <p className="text-xs text-[#716B63] mt-0.5">
+                    Connects to CourtMind RAG backend at <code className="font-mono text-[11px]">/api/rag/summarize</code>
+                  </p>
+                </div>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleGenerateSummary}
+                  isLoading={summaryLoading}
+                  leftIcon={<Sparkles className="w-3.5 h-3.5" />}
+                  id="btn-summarize-doc"
+                >
+                  Generate Summary
+                </Button>
+              </div>
+
               <PendingBox
-                title={record.status === 'failed' ? 'Analysis service error' : 'Analysis service not connected'}
+                title={record.status === 'failed' ? 'Analysis service error' : 'Analysis service ready'}
                 message={
                   record.status === 'failed'
                     ? 'Document processing failed. Please re-upload or contact support.'
                     : record.status === 'processing'
                     ? 'Document is currently being processed. Check back shortly.'
-                    : 'The AI document analysis pipeline has not been connected to this frontend yet. ' +
-                      'Analysis results — including document summary, parties, key entities, important dates, ' +
-                      'and legal issues — will appear here once the backend RAG service processes this document.'
+                    : 'Click "Generate Summary" above to query the CourtMind RAG backend. The backend will extract a structured 6-part legal summary (case title, parties, facts, issues, holding, reasoning) using the indexed vector chunks.'
                 }
               />
 
@@ -239,7 +307,7 @@ const AiAnalysisDetailPage: React.FC = () => {
           )}
         </Section>
 
-        {/* ── Section C: Delay Risk Assessment ─────────────────────────────── */}
+        {/* ── Section C: Delay Risk Assessment ─────────────────────────────────── */}
         <Section id="delay-risk" title="Delay Risk Assessment" icon={<TrendingUp className="w-4 h-4" />} defaultOpen>
           {hasRealRiskPrediction ? (
             /* When ML model provides a real prediction, render it here */
