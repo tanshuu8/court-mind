@@ -1,23 +1,33 @@
+"""Legal semantic chunker with heading-awareness, page attribution, and stable IDs."""
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 
 class LegalSemanticChunker:
     """Splits legal documents into coherent semantic chunks.
 
     Respects legal document structures:
-    - Page boundaries and page references
+    - Page boundaries and accurate page numbers
     - Paragraph numbering (e.g., 'Para 1.', '1.', '[1]')
-    - Section and clause breaks (e.g., 'JUDGMENT:', 'ORDER:')
-    - Sliding window chunking when a paragraph exceeds chunk_size
+    - Section and clause breaks (e.g., 'JUDGMENT:', 'ORDER:', 'HELD:')
+    - Heading-aware section metadata preservation
+    - Sentence-aware sliding window chunking when a paragraph exceeds chunk_size
     - Generates stable, deterministic chunk IDs including page reference
-    - Preserves all parent document metadata on each chunk
+    - Preserves all parent document metadata (title, court, year, date) on each chunk
     """
+
+    _HEADING_REGEX = re.compile(
+        r"^(?:JUDGMENT|ORDER|REPORTABLE|NON-REPORTABLE|FACTS|ISSUES?|REASONING|HELD|"
+        r"CONCLUSIONS?|POINTS?\s+FOR\s+CONSIDERATION|OPINION|BACKGROUND)\b[:\.]?|"
+        r"^(?:Section\s+\d+[A-Za-z0-9\(\)]*|Article\s+\d+[A-Za-z0-9\(\)]*)\b|"
+        r"^(?:Civil\s+Appeal|Criminal\s+Appeal|Special\s+Leave\s+Petition|Writ\s+Petition)\b",
+        re.IGNORECASE,
+    )
 
     def __init__(
         self,
-        chunk_size: int = 512,
-        chunk_overlap: int = 64,
+        chunk_size: int = 1200,
+        chunk_overlap: int = 150,
         respect_paragraphs: bool = True,
     ) -> None:
         if chunk_size <= chunk_overlap:
@@ -40,15 +50,18 @@ class LegalSemanticChunker:
         doc_id = parsed_document.get("doc_id", "DOC-UNKNOWN")
         pages = parsed_document.get("pages", [])
         parent_meta = parsed_document.get("metadata", {})
+        title = parsed_document.get("title", parent_meta.get("title", "Unknown Case"))
+        court = parsed_document.get("court", parent_meta.get("court", "Court"))
+        year = parsed_document.get("year", parent_meta.get("year", "N/A"))
 
-        # If scanned document, do not produce empty chunks
         if parsed_document.get("is_scanned", False):
             return []
 
         chunks: List[Dict[str, Any]] = []
         global_chunk_idx = 0
+        active_heading: Optional[str] = None
 
-        # If page breakdown is available, chunk page-by-page to guarantee page attribution
+        # 1. Page-aware chunking
         if pages and any(p.get("text", "").strip() for p in pages):
             for page in pages:
                 page_num = page.get("page_number", 1)
@@ -56,7 +69,7 @@ class LegalSemanticChunker:
                 if not page_text:
                     continue
 
-                page_chunks = self._chunk_text_block(page_text)
+                page_chunks, active_heading = self._chunk_text_block(page_text, active_heading)
                 for chunk_text in page_chunks:
                     chunk_id = f"{doc_id}#p{page_num:03d}_c{global_chunk_idx:04d}"
                     chunk_meta = {
@@ -65,6 +78,10 @@ class LegalSemanticChunker:
                         "doc_id": doc_id,
                         "chunk_index": global_chunk_idx,
                         "page_number": page_num,
+                        "title": title,
+                        "court": court,
+                        "year": year,
+                        "section_heading": active_heading or "General Judgment Body",
                         "char_length": len(chunk_text),
                         "word_count": len(chunk_text.split()),
                     }
@@ -83,7 +100,7 @@ class LegalSemanticChunker:
             if not text.strip():
                 return []
 
-            text_chunks = self._chunk_text_block(text)
+            text_chunks, active_heading = self._chunk_text_block(text, active_heading)
             for idx, chunk_text in enumerate(text_chunks):
                 chunk_id = f"{doc_id}#chunk_{idx:04d}"
                 chunk_meta = {
@@ -92,6 +109,10 @@ class LegalSemanticChunker:
                     "doc_id": doc_id,
                     "chunk_index": idx,
                     "page_number": 1,
+                    "title": title,
+                    "court": court,
+                    "year": year,
+                    "section_heading": active_heading or "General Judgment Body",
                     "char_length": len(chunk_text),
                     "word_count": len(chunk_text.split()),
                 }
@@ -110,8 +131,9 @@ class LegalSemanticChunker:
 
         return chunks
 
-    def _chunk_text_block(self, text: str) -> List[str]:
-        """Chunks a contiguous block of text respecting paragraph boundaries and sliding window."""
+    def _chunk_text_block(self, text: str, initial_heading: Optional[str] = None) -> Tuple[List[str], Optional[str]]:
+        """Chunks a text block respecting paragraph boundaries and extracting legal headings."""
+        current_heading = initial_heading
         if self.respect_paragraphs:
             raw_blocks = self._split_into_paragraphs(text)
         else:
@@ -126,8 +148,15 @@ class LegalSemanticChunker:
             if not block:
                 continue
 
+            # Detect headings
+            first_line = block.split("\n", 1)[0].strip()
+            match = self._HEADING_REGEX.search(first_line)
+            if match:
+                current_heading = first_line[:60]
+
             block_len = len(block)
 
+            # If single paragraph exceeds chunk size, sliding window split it
             if block_len > self.chunk_size:
                 if current_chunk_parts:
                     text_chunks.append("\n\n".join(current_chunk_parts))
@@ -151,7 +180,7 @@ class LegalSemanticChunker:
         if current_chunk_parts:
             text_chunks.append("\n\n".join(current_chunk_parts))
 
-        return [c.strip() for c in text_chunks if c.strip()]
+        return [c.strip() for c in text_chunks if c.strip()], current_heading
 
     def _split_into_paragraphs(self, text: str) -> List[str]:
         """Identifies legal paragraph boundaries such as 'Para 1.', numbered items, or double newlines."""
@@ -167,7 +196,7 @@ class LegalSemanticChunker:
         return result
 
     def _sliding_window_split(self, long_text: str) -> List[str]:
-        """Splits text exceeding chunk_size using sentence-aware sliding window."""
+        """Splits long text exceeding chunk_size using sentence-aware sliding window."""
         sentences = re.split(r"(?<=[.!?])\s+", long_text)
         chunks: List[str] = []
         current: List[str] = []

@@ -76,11 +76,24 @@ async def health_check() -> Dict[str, Any]:
         storage_ok = False
         pdf_count = 0
 
+    # LLM configuration status
+    from app.core.config import settings
+    active_key = (
+        settings.GROQ_API_KEY if settings.LLM_PROVIDER == "groq"
+        else (settings.GEMINI_API_KEY or settings.LLM_API_KEY)
+    )
+    llm_info = {
+        "provider": settings.LLM_PROVIDER,
+        "model": settings.LLM_MODEL_NAME,
+        "configured": bool(active_key and active_key.strip()),
+    }
+
     return {
         "status": "ok",
         "vector_store": {"mode": vs_mode, "chunks": chunk_count},
         "document_registry": {"count": len(registry)},
         "disk_storage": {"ok": storage_ok, "pdf_files": pdf_count},
+        "llm": llm_info,
     }
 
 
@@ -302,6 +315,8 @@ async def ask_document(body: AskRequest) -> AskResponse:
         citations=citations,
         is_grounded=result.get("is_grounded", False),
         status=result.get("status", "unknown"),
+        provider=result.get("provider"),
+        model=result.get("model"),
         source_attribution=result.get("source_attribution", "Selected Document Passages"),
         disclaimer=result.get("disclaimer"),
         advocate_cta=result["advocate_cta"],
@@ -353,5 +368,7 @@ async def summarize_document(body: SummarizeRequest) -> SummarizeResponse:
         total_chunks=result.get("total_chunks"),
         summary=result["summary"],
         status=result["status"],
+        provider=result.get("provider"),
+        model=result.get("model"),
         advocate_cta=result["advocate_cta"],
     )

@@ -55,15 +55,29 @@ def _get_components() -> tuple:
     if _initialized:
         return _embedder, _retriever, _llm_client, _rag_pipeline, _ingestion_pipeline, _advocate_matcher
 
+    from app.core.config import settings
+
     _embedder = TextEmbedder()
     _retriever = PgVectorRetriever()
-    _llm_client = LLMClient()
+    active_key = (
+        settings.GROQ_API_KEY if settings.LLM_PROVIDER == "groq"
+        else (settings.GEMINI_API_KEY or settings.LLM_API_KEY)
+    )
+    _llm_client = LLMClient(
+        provider=settings.LLM_PROVIDER,
+        model_name=settings.LLM_MODEL_NAME,
+        api_key=active_key,
+        temperature=settings.LLM_TEMPERATURE,
+        timeout=settings.LLM_TIMEOUT,
+        max_retries=settings.LLM_MAX_RETRIES,
+        max_output_tokens=settings.LLM_MAX_OUTPUT_TOKENS,
+    )
     _advocate_matcher = AdvocateMatcher()
 
     _ingestion_pipeline = LegalIngestionPipeline(
         loader=DocumentLoader(),
         parser=LegalDocumentParser(),
-        chunker=LegalSemanticChunker(chunk_size=500, chunk_overlap=60),
+        chunker=LegalSemanticChunker(chunk_size=1200, chunk_overlap=150),
         embedder=_embedder,
         retriever=_retriever,
     )

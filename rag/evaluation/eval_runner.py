@@ -42,15 +42,27 @@ async def run_evaluation(top_k: int = 5) -> Dict[str, Any]:
     print("=" * 70)
 
     # 1. Initialize components
+    from dotenv import load_dotenv
+    load_dotenv(PROJECT_ROOT / "backend" / ".env")
+    from backend.app.core.config import settings
+
     embedder = TextEmbedder()
     retriever = PgVectorRetriever()
-    llm = LLMClient()
+    llm = LLMClient(
+        provider=settings.LLM_PROVIDER,
+        model_name=settings.LLM_MODEL_NAME,
+        api_key=settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY"),
+        temperature=settings.LLM_TEMPERATURE,
+        timeout=settings.LLM_TIMEOUT,
+        max_retries=settings.LLM_MAX_RETRIES,
+        max_output_tokens=settings.LLM_MAX_OUTPUT_TOKENS,
+    )
     evaluator = RAGEvaluator()
 
     ingestion = LegalIngestionPipeline(
         loader=DocumentLoader(),
         parser=LegalDocumentParser(),
-        chunker=LegalSemanticChunker(chunk_size=500, chunk_overlap=60),
+        chunker=LegalSemanticChunker(chunk_size=1200, chunk_overlap=150),
         embedder=embedder,
         retriever=retriever,
     )
@@ -102,14 +114,15 @@ async def run_evaluation(top_k: int = 5) -> Dict[str, Any]:
         status = resp.get("status", "unknown")
         is_refusal = "do not establish" in answer.lower() or "does not establish" in answer.lower() or status == "insufficient_evidence"
 
-        # 1. Document-level filter matching
+        # 1. Document-level filter matching (checks citations if answered, or retrieved passages if refused)
         doc_hit_1 = False
         doc_hit_3 = False
         doc_hit_5 = False
         doc_mrr = 0.0
 
+        retrieval_sources = citations if citations else resp.get("retrieved_passages", [])
         if mode == "document" and doc_id:
-            for rank, c in enumerate(citations[:top_k], start=1):
+            for rank, c in enumerate(retrieval_sources[:top_k], start=1):
                 c_doc = c.get("doc_id", "")
                 if c_doc == doc_id or (doc_id in c_doc) or (c_doc in doc_id):
                     if rank == 1:

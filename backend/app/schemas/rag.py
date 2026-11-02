@@ -71,6 +71,8 @@ class AskResponse(BaseModel):
     citations: List[CitationSchema] = []
     is_grounded: bool
     status: str
+    provider: Optional[str] = None
+    model: Optional[str] = None
     source_attribution: str = "Selected Document Passages"
     disclaimer: Optional[str] = None
     advocate_cta: AdvocateCTASchema
@@ -93,6 +95,8 @@ class SummarizeResponse(BaseModel):
     total_chunks: Optional[int] = None
     summary: str
     status: str
+    provider: Optional[str] = None
+    model: Optional[str] = None
     advocate_cta: AdvocateCTASchema
 
 

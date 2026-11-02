@@ -3,6 +3,7 @@ import math
 import os
 import re
 from typing import Any, Dict, List, Optional
+from rag.retrieval.bm25 import BM25Index, tokenize_legal_text
 
 
 class PgVectorRetriever:
@@ -11,7 +12,7 @@ class PgVectorRetriever:
     Features:
     - Dual-mode architecture (PostgreSQL pgvector when available, in-memory vector store fallback)
     - Strict document-level filtering by doc_id / case_id / title / court / year
-    - Entity-aware & issue-aware hybrid ranking to prefer passages from the intended judgment
+    - Hybrid BM25 + dense vector retrieval with Reciprocal Rank Fusion (RRF)
     - Preserves page numbers and chunk metadata
     """
 
@@ -29,6 +30,9 @@ class PgVectorRetriever:
         self._memory_chunks: Dict[str, Dict[str, Any]] = {}
         self._memory_embeddings: Dict[str, List[float]] = {}
         self._is_postgres_active: bool = False
+
+        # BM25 lexical index (rebuilt on each upsert)
+        self._bm25_index: BM25Index = BM25Index()
 
         if self.connection_url and not self.connection_url.startswith("memory:"):
             self._try_init_postgres()
@@ -77,6 +81,9 @@ class PgVectorRetriever:
             chunk_id = chunk["chunk_id"]
             self._memory_chunks[chunk_id] = chunk
             self._memory_embeddings[chunk_id] = emb
+
+        # Rebuild BM25 index over all currently stored chunks
+        self._bm25_index.index_chunks(list(self._memory_chunks.values()))
 
         if self._is_postgres_active and self.connection_url:
             try:
@@ -146,102 +153,102 @@ class PgVectorRetriever:
         filters: Optional[Dict[str, Any]] = None,
         query_text: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
-        """Cosine similarity search over in-memory cached vectors with hybrid entity boosting."""
-        scores: List[Dict[str, Any]] = []
+        """Hybrid BM25 + dense cosine similarity search with Reciprocal Rank Fusion (RRF).
+
+        Algorithm:
+        1. Compute BM25 scores for all filtered chunks → rank list A
+        2. Compute dense cosine similarity for all filtered chunks → rank list B
+        3. Fuse both rank lists with RRF: score = 1/(k+rank_A) + 1/(k+rank_B), k=60
+        4. Return top-k by RRF score; deduplication by chunk_id is implicit via dict.
+        """
         q_lower = query_text.lower() if query_text else ""
+        RRF_K = 60
 
-        for chunk_id, emb in self._memory_embeddings.items():
-            chunk = self._memory_chunks.get(chunk_id)
-            if not chunk:
+        # ── 1. Collect candidate chunk_ids passing filters ──────────────────
+        candidate_ids: List[str] = []
+        for chunk_id, chunk in self._memory_chunks.items():
+            if filters and not self._matches_filters(chunk, filters):
                 continue
+            candidate_ids.append(chunk_id)
 
-            # 1. Document-level & metadata filtering
-            if filters:
-                if not self._matches_filters(chunk, filters):
-                    continue
+        if not candidate_ids:
+            return []
 
-            # 2. Vector cosine similarity (dot product of L2-normalized vectors)
+        candidate_set = set(candidate_ids)
+
+        # ── 2. Dense cosine similarity ranking ──────────────────────────────
+        dense_scores: List[tuple] = []  # (chunk_id, sim)
+        for chunk_id in candidate_ids:
+            emb = self._memory_embeddings.get(chunk_id)
+            if emb is None:
+                continue
             sim = sum(a * b for a, b in zip(query_vec, emb))
-            sim_clamped = max(-1.0, min(1.0, sim))
+            sim = max(-1.0, min(1.0, sim))
+            dense_scores.append((chunk_id, sim))
 
-            # 3. Hybrid entity-aware and issue-aware ranking boost
-            boost = self._calculate_hybrid_boost(chunk, q_lower)
-            final_score = max(0.0, min(1.0, sim_clamped + boost))
+        # Apply early-chunk boost for overview-style queries (generic, not doc-specific)
+        overview_terms = [
+            "what is this case about", "what is the case about", "overview",
+            "facts of the case", "about this case", "parties", "what happened",
+        ]
+        if query_text and any(term in q_lower for term in overview_terms):
+            boosted = []
+            for chunk_id, sim in dense_scores:
+                chunk = self._memory_chunks[chunk_id]
+                idx = chunk.get("chunk_index", 999)
+                pg = chunk.get("page_number", chunk.get("metadata", {}).get("page_number", 999))
+                if idx <= 4 or pg <= 2:
+                    sim = min(1.0, sim + 0.12)
+                boosted.append((chunk_id, sim))
+            dense_scores = boosted
 
+        dense_scores.sort(key=lambda x: x[1], reverse=True)
+        dense_rank: Dict[str, int] = {cid: rank + 1 for rank, (cid, _) in enumerate(dense_scores)}
+        dense_score_map: Dict[str, float] = {cid: s for cid, s in dense_scores}
+
+        # ── 3. BM25 lexical ranking (pre-filtered by candidate_set) ─────────
+        bm25_results: List[tuple] = []  # (chunk_id, bm25_score)
+        if query_text and self._bm25_index.doc_count > 0:
+            raw_bm25 = self._bm25_index.search(query_text, top_k=len(candidate_ids) * 2, filters=filters)
+            bm25_results = [(cid, score) for cid, score in raw_bm25 if cid in candidate_set]
+
+        bm25_rank: Dict[str, int] = {cid: rank + 1 for rank, (cid, _) in enumerate(bm25_results)}
+
+        # ── 4. RRF fusion ────────────────────────────────────────────────────
+        # Chunks not ranked by BM25 get rank = len(candidate_ids) + 1 (worst possible)
+        worst_bm25_rank = len(candidate_ids) + 1
+        fused: Dict[str, float] = {}
+        for chunk_id in candidate_ids:
+            r_dense = dense_rank.get(chunk_id, worst_bm25_rank)
+            r_bm25 = bm25_rank.get(chunk_id, worst_bm25_rank)
+            fused[chunk_id] = 1.0 / (RRF_K + r_dense) + 1.0 / (RRF_K + r_bm25)
+
+        sorted_chunks = sorted(fused.items(), key=lambda x: x[1], reverse=True)
+
+        # ── 5. Build result list ─────────────────────────────────────────────
+        results: List[Dict[str, Any]] = []
+        for chunk_id, rrf_score in sorted_chunks[:top_k]:
+            chunk = self._memory_chunks[chunk_id]
+            # Use dense cosine score for similarity_score (for threshold filtering in pipeline)
+            dense_sim = dense_score_map.get(chunk_id, 0.0)
             page_num = chunk.get("page_number", chunk.get("metadata", {}).get("page_number", 1))
-
-            scores.append({
+            results.append({
                 "chunk_id": chunk["chunk_id"],
                 "doc_id": chunk["doc_id"],
                 "chunk_index": chunk["chunk_index"],
                 "page_number": page_num,
                 "text": chunk["text"],
                 "metadata": chunk.get("metadata", {}),
-                "similarity_score": round(final_score, 5),
-                "distance": round(1.0 - final_score, 5),
+                "similarity_score": round(max(0.0, dense_sim), 5),
+                "hybrid_score": round(rrf_score, 6),
+                "distance": round(1.0 - max(0.0, dense_sim), 5),
             })
-
-        scores.sort(key=lambda x: x["similarity_score"], reverse=True)
-        return scores[:top_k]
+        return results
 
     def _calculate_hybrid_boost(self, chunk: Dict[str, Any], q_lower: str) -> float:
-        """Computes lexical and entity-aware relevance adjustments."""
-        if not q_lower:
-            return 0.0
-
-        boost = 0.0
-        meta = chunk.get("metadata", {})
-        title_lower = str(meta.get("title", "")).lower()
-        chunk_text_lower = chunk.get("text", "").lower()
-
-        # Check explicit case name in query
-        if "bachan singh" in q_lower:
-            if "bachan singh" in title_lower:
-                boost += 0.35
-            else:
-                boost -= 0.30
-
-        if "maneka gandhi" in q_lower:
-            if "maneka gandhi" in title_lower:
-                boost += 0.35
-            else:
-                boost -= 0.30
-
-        if "land acquisition" in q_lower or "solatium" in q_lower or "section 24(2)" in q_lower:
-            if "land acquisition" in title_lower or "1615" in str(chunk.get("doc_id", "")).lower():
-                boost += 0.35
-            else:
-                boost -= 0.25
-
-        if "kesavananda" in q_lower or "basic structure" in q_lower:
-            if "kesavananda" in title_lower:
-                boost += 0.35
-            else:
-                boost -= 0.25
-
-        if "puttaswamy" in q_lower or "privacy" in q_lower:
-            if "puttaswamy" in title_lower:
-                boost += 0.30
-
-        # Term overlap boost for distinctive legal provisions
-        distinctive_terms = ["solatium", "section 377", "section 401", "pune municipal", "indore development"]
-        for term in distinctive_terms:
-            if term in q_lower and term in chunk_text_lower:
-                boost += 0.15
-
-        # Case overview and broad background boost for early introductory chunks
-        overview_terms = [
-            "what is this case about", "what is the case about", "what is this document about",
-            "what is this judgment about", "overview", "summary", "facts of the case", "about this case",
-            "parties", "who is the accused", "who is bachan singh", "what happened in this case",
-        ]
-        if any(term in q_lower for term in overview_terms):
-            chunk_idx = chunk.get("chunk_index", 999)
-            page_num = chunk.get("page_number", chunk.get("metadata", {}).get("page_number", 999))
-            if chunk_idx <= 4 or page_num <= 2:
-                boost += 0.25
-
-        return boost
+        """Legacy method kept for backward compatibility. Returns 0.0 — boosting is now
+        handled inside _search_memory via BM25 RRF fusion."""
+        return 0.0
 
     def _matches_filters(self, chunk: Dict[str, Any], filters: Dict[str, Any]) -> bool:
         """Evaluates whether a chunk matches strict filter criteria."""
@@ -333,9 +340,10 @@ class PgVectorRetriever:
         return results
 
     def clear(self) -> None:
-        """Clears stored chunks from memory and Postgres."""
+        """Clears stored chunks from memory, BM25 index, and Postgres."""
         self._memory_chunks.clear()
         self._memory_embeddings.clear()
+        self._bm25_index = BM25Index()
         if self._is_postgres_active and self.connection_url:
             try:
                 import psycopg2

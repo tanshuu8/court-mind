@@ -1,9 +1,13 @@
+import logging
 import re
 from typing import Any, Dict, List, Optional
 from rag.embeddings.embedder import TextEmbedder
 from rag.retrieval.vector_store import PgVectorRetriever
 from rag.generation.llm_client import LLMClient
+from rag.generation.exceptions import LLMGenerationError
 from rag.advocate_matching.matcher import AdvocateMatcher
+
+logger = logging.getLogger("courtmind.rag_pipeline")
 
 # ---------------------------------------------------------------------------
 # Topic-coherence helpers
@@ -98,11 +102,14 @@ class LegalRAGPipeline:
             query_vec, top_k=top_k, filters=combined_filters if combined_filters else None, query_text=query
         )
 
-        # 3. Filter chunks by similarity threshold
-        valid_chunks = [
-            c for c in retrieved_chunks
-            if c.get("similarity_score", 0.0) >= self.min_similarity_threshold
-        ]
+        # 3. Filter chunks by similarity threshold and deduplicate by chunk_id
+        seen_ids = set()
+        valid_chunks = []
+        for c in retrieved_chunks:
+            cid = c.get("chunk_id")
+            if cid not in seen_ids and c.get("similarity_score", 0.0) >= self.min_similarity_threshold:
+                seen_ids.add(cid)
+                valid_chunks.append(c)
 
         # 4a. Document-intent mismatch guard (pre-LLM).
         # Check whether the query's primary intent is structurally incompatible with
@@ -121,7 +128,7 @@ class LegalRAGPipeline:
                 "doc_id": case_id,
                 "answer": intent_mismatch,
                 "citations": [],
-                "retrieved_passages": [],
+                "retrieved_passages": valid_chunks or retrieved_chunks,
                 "is_grounded": False,
                 "status": "insufficient_evidence",
                 "source_attribution": "Selected Document Passages",
@@ -150,7 +157,7 @@ class LegalRAGPipeline:
                     "statutory or legal reference."
                 ),
                 "citations": [],
-                "retrieved_passages": [],
+                "retrieved_passages": valid_chunks,
                 "is_grounded": False,
                 "status": "insufficient_evidence",
                 "source_attribution": "Selected Document Passages",
@@ -175,7 +182,7 @@ class LegalRAGPipeline:
                     "statutory or legal reference."
                 ),
                 "citations": [],
-                "retrieved_passages": [],
+                "retrieved_passages": retrieved_chunks,
                 "is_grounded": False,
                 "status": "insufficient_evidence",
                 "source_attribution": "Selected Document Passages",
@@ -212,15 +219,38 @@ class LegalRAGPipeline:
             "based on the provided court judgment passages.\n\n"
             "Rules:\n"
             "1. Base your answer ONLY on the provided context passages. Do not assume or extrapolate facts.\n"
-            "2. Explicitly cite your sources using format [Document: {title} ({year}), Page: {page}, Chunk: {chunk_index}].\n"
+            "2. Cite your sources using the format [Document: {title} ({year}), Page: {page}, Chunk: {chunk_index}]. Include page number for every factual claim.\n"
             "3. If the provided passages do not establish the answer, state explicitly: "
             "'The available documents do not establish the answer to this question.'\n"
-            "4. Maintain a neutral, professional judicial tone."
+            "4. Do NOT fabricate citations or reference passages not in the context.\n"
+            "5. Maintain a neutral, professional judicial tone."
         )
 
         user_prompt = f"{history_str}Context Passages:\n{context_str}\n\nQuestion: {query}"
 
-        raw_answer = await self.llm_client.generate_response(system_prompt, user_prompt)
+        try:
+            raw_answer = await self.llm_client.generate_response(system_prompt, user_prompt)
+        except LLMGenerationError as exc:
+            logger.error("LLM generation failed in answer_question: %s", exc.message)
+            top_meta = valid_chunks[0].get("metadata", {}) if valid_chunks else {}
+            cta = self.advocate_matcher.generate_advocate_cta(
+                practice_area=self._infer_practice_area(query, valid_chunks[0].get("text", "")),
+                court=top_meta.get("court"),
+                origin_source="rag_qa_error",
+            )
+            return {
+                "query": query,
+                "mode": "document",
+                "doc_id": case_id,
+                "answer": f"LLM generation failed: {exc.message}",
+                "citations": [],
+                "retrieved_passages": valid_chunks,
+                "is_grounded": False,
+                "status": "error",
+                "source_attribution": f"Error: Provider generation failed ({exc.provider})",
+                "disclaimer": f"Error: {type(exc).__name__}",
+                "advocate_cta": cta,
+            }
 
         # 6. Format structured citations with page numbers
         citations = [
@@ -257,6 +287,8 @@ class LegalRAGPipeline:
             "retrieved_passages": valid_chunks,
             "is_grounded": is_established,
             "status": "success" if is_established else "insufficient_evidence",
+            "provider": self.llm_client.provider,
+            "model": self.llm_client.model_name,
             "source_attribution": "Selected Document Passages",
             "advocate_cta": cta,
         }
@@ -267,7 +299,29 @@ class LegalRAGPipeline:
         case_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Answers statutory, doctrine, and general legal reference questions (Mode B)."""
-        answer_text = await self.llm_client.generate_general_legal_response(query)
+        try:
+            answer_text = await self.llm_client.generate_general_legal_response(query)
+        except LLMGenerationError as exc:
+            logger.error("LLM generation failed in answer_general_question: %s", exc.message)
+            cta = self.advocate_matcher.generate_advocate_cta(
+                practice_area=self._infer_practice_area(query, ""),
+                court="Supreme Court / High Court",
+                origin_source="general_legal_reference_error",
+            )
+            return {
+                "query": query,
+                "mode": "general",
+                "doc_id": case_id,
+                "answer": f"Generation failed: {exc.message}",
+                "citations": [],
+                "retrieved_passages": [],
+                "is_grounded": False,
+                "status": "error",
+                "source_attribution": f"Error: Provider generation failed ({exc.provider})",
+                "disclaimer": f"Error: {type(exc).__name__}",
+                "advocate_cta": cta,
+            }
+
         cta = self.advocate_matcher.generate_advocate_cta(
             practice_area=self._infer_practice_area(query, answer_text),
             court="Supreme Court / High Court",
@@ -282,6 +336,8 @@ class LegalRAGPipeline:
             "retrieved_passages": [],
             "is_grounded": False,
             "status": "success",
+            "provider": self.llm_client.provider,
+            "model": self.llm_client.model_name,
             "source_attribution": "General Legal Reference (Statutory Codes & Landmark Precedents)",
             "disclaimer": (
                 "Notice: This answer is provided from CourtMind General Legal Reference for informational purposes. "
@@ -338,7 +394,27 @@ class LegalRAGPipeline:
             f"Judgment Content:\n{combined_text[:4000]}"
         )
 
-        summary_text = await self.llm_client.generate_response(system_prompt, user_prompt)
+        try:
+            summary_text = await self.llm_client.generate_response(system_prompt, user_prompt)
+        except LLMGenerationError as exc:
+            logger.error("LLM generation failed in summarize_document: %s", exc.message)
+            cta = self.advocate_matcher.generate_advocate_cta(
+                practice_area=self._infer_practice_area(meta.get("title", ""), combined_text),
+                court=meta.get("court"),
+                origin_source="document_summary_error",
+            )
+            return {
+                "doc_id": doc_id,
+                "case_id": doc_id,
+                "title": meta.get("title"),
+                "court": meta.get("court"),
+                "year": meta.get("year"),
+                "total_pages": total_pages,
+                "total_chunks": len(all_chunks),
+                "summary": f"Document summarization failed: {exc.message}",
+                "status": "error",
+                "advocate_cta": cta,
+            }
 
         cta = self.advocate_matcher.generate_advocate_cta(
             practice_area=self._infer_practice_area(meta.get("title", ""), combined_text),
@@ -356,6 +432,8 @@ class LegalRAGPipeline:
             "total_chunks": len(all_chunks),
             "summary": summary_text,
             "status": "success",
+            "provider": self.llm_client.provider,
+            "model": self.llm_client.model_name,
             "advocate_cta": cta,
         }
 
@@ -527,15 +605,35 @@ class LegalRAGPipeline:
 
         return None
 
-    def _has_topic_coherence(self, query: str, chunks: List[Dict[str, Any]]) -> bool:
-        """Returns True if at least one chunk shares >= 1 content word with the query.
+    _BROAD_LEGAL_INQUIRY_TERMS: frozenset = frozenset({
+        "constitution", "constitutional", "article", "liberty", "fundamental",
+        "rights", "right", "issue", "issues", "principle", "principles",
+        "reasoning", "reason", "decision", "holding", "held", "summary",
+        "summarize", "facts", "background", "overview", "ratio", "obiter",
+        "impound", "impounding", "passport", "procedure", "fair", "just",
+        "compensation", "lapse", "appeal", "sentence", "revision", "jurisdiction",
+        "doctrine", "statute", "statutory", "ruling", "precedent", "order",
+    })
 
-        This is a conservative minimum bar: any genuine on-topic retrieval will
-        produce at least one shared non-trivial token (e.g. "passport", "section",
-        "lapse", "sentence").  A completely unrelated query (maritime zones,
-        patent law) against a document that contains none of those words will
-        have zero overlap and must be refused.
+    def _has_topic_coherence(self, query: str, chunks: List[Dict[str, Any]]) -> bool:
+        """Returns True if the query exhibits topic coherence with retrieved context.
+
+        Allows through:
+        1. Queries containing substantive broad legal inquiry terms (e.g. 'constitutional',
+           'reasoning', 'principles', 'issues', 'liberty', 'procedure').
+        2. Queries with strong similarity scores (>= 0.30) from dense retrieval.
+        3. Queries sharing at least 1 non-trivial content word with at least one chunk.
+
+        Only refuses queries that have zero lexical overlap, low similarity, and no
+        broad legal inquiry terms (e.g. maritime law queried against passport judgment).
         """
+        q_lower = query.lower()
+        if any(term in q_lower for term in self._BROAD_LEGAL_INQUIRY_TERMS):
+            return True
+
+        if any(chunk.get("similarity_score", 0.0) >= 0.30 for chunk in chunks):
+            return True
+
         q_words = _content_words(query)
         if not q_words:
             # Can't determine — allow through (edge case: single stopword query).

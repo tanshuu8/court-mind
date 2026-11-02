@@ -80,6 +80,9 @@ def ingested_pipeline():
     """Shared fixture: ingest all bundled judgments once per module."""
     import asyncio
     from pathlib import Path
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).resolve().parent.parent / "backend" / ".env")
+    from backend.app.core.config import settings
     from rag.ingestion.loader import DocumentLoader
     from rag.ingestion.parser import LegalDocumentParser
     from rag.ingestion.pipeline import LegalIngestionPipeline
@@ -87,12 +90,20 @@ def ingested_pipeline():
 
     embedder = TextEmbedder()
     retriever = PgVectorRetriever()
-    llm = LLMClient()
+    llm = LLMClient(
+        provider=settings.LLM_PROVIDER,
+        model_name=settings.LLM_MODEL_NAME,
+        api_key=settings.GEMINI_API_KEY,
+        temperature=settings.LLM_TEMPERATURE,
+        timeout=settings.LLM_TIMEOUT,
+        max_retries=settings.LLM_MAX_RETRIES,
+        max_output_tokens=settings.LLM_MAX_OUTPUT_TOKENS,
+    )
 
     ingestion = LegalIngestionPipeline(
         loader=DocumentLoader(),
         parser=LegalDocumentParser(),
-        chunker=LegalSemanticChunker(chunk_size=500, chunk_overlap=60),
+        chunker=LegalSemanticChunker(chunk_size=1200, chunk_overlap=150),
         embedder=embedder,
         retriever=retriever,
     )

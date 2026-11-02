@@ -1,13 +1,21 @@
+from pathlib import Path
 from typing import List, Union
 from pydantic import AnyHttpUrl, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_project_root = Path(__file__).resolve().parents[3]
+_backend_root = Path(__file__).resolve().parents[2]
+_env_candidates = (
+    str(_project_root / ".env"),
+    str(_backend_root / ".env"),
+)
 
 
 class Settings(BaseSettings):
     """Application Settings using Pydantic BaseSettings."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=_env_candidates,
         env_file_encoding="utf-8",
         case_sensitive=True,
         extra="ignore",
@@ -39,11 +47,20 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://courtmind_user:courtmind_password@localhost:5432/courtmind_db"
     VECTOR_DATABASE_URL: str = "postgresql://courtmind_user:courtmind_password@localhost:5432/courtmind_db"
 
-    # LLM & Embedding Settings
-    LLM_PROVIDER: str = "openai"
+    # LLM Generation Settings (Groq primary, Google Gemini secondary)
+    LLM_PROVIDER: str = "groq"
+    LLM_MODEL_NAME: str = "qwen/qwen3.8-27b"
+    GROQ_API_KEY: str = ""
+    GROQ_MODEL_NAME: str = "qwen/qwen3.8-27b"
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL_NAME: str = "gemini-3.5-flash"
     LLM_API_KEY: str = ""
-    LLM_MODEL_NAME: str = "gpt-4o-mini"
-    LLM_TEMPERATURE: float = 0.3
+    LLM_TEMPERATURE: float = 0.1
+    LLM_TIMEOUT: float = 60.0
+    LLM_MAX_RETRIES: int = 2
+    LLM_MAX_OUTPUT_TOKENS: int = 600
+
+    # Embedding Settings
     EMBEDDING_PROVIDER: str = "sentence-transformers"
     EMBEDDING_MODEL: str = "sentence-transformers/all-MiniLM-L6-v2"
     EMBEDDING_DIMENSION: int = 384
