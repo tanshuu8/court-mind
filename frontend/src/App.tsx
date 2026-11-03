@@ -143,6 +143,15 @@ export const App: React.FC = () => {
     fetchDocuments();
   }, []);
 
+  // Automatically retry connection when offline so it goes online as soon as backend starts
+  useEffect(() => {
+    if (backendOnline === true) return;
+    const timer = setInterval(() => {
+      fetchDocuments();
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [backendOnline]);
+
   const selectedDocument = documents.find((d) => d.doc_id === selectedDocId);
 
   // Handle PDF Upload
