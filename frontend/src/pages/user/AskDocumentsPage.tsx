@@ -254,6 +254,15 @@ const AskDocumentsPage: React.FC = () => {
     loadIndexedDocuments();
   }, [loadIndexedDocuments]);
 
+  // Automatically retry connection when offline so it goes online as soon as backend starts
+  useEffect(() => {
+    if (backendStatus === 'connected') return;
+    const timer = setInterval(() => {
+      loadIndexedDocuments();
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [backendStatus, loadIndexedDocuments]);
+
   // Auto-scroll to bottom when messages change
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
